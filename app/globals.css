@@ -1,26 +1,219 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    /* ── Base ─────────────────────────────────────────────────────────────── */
+    --background:             oklch(1 0 0);               /* blanc pur           */
+    --foreground:             oklch(0.18 0.03 255);        /* navy foncé          */
+    --card:                   oklch(1 0 0);
+    --card-foreground:        oklch(0.18 0.03 255);
+    --popover:                oklch(1 0 0);
+    --popover-foreground:     oklch(0.18 0.03 255);
+
+    /* ── Couleur primaire — bleu cobalt ───────────────────────────────────── */
+    --primary:                oklch(0.52 0.22 255);        /* bleu cobalt         */
+    --primary-foreground:     oklch(0.99 0 0);             /* blanc sur bleu      */
+
+    /* ── Couleur secondaire — bleu très clair ────────────────────────────── */
+    --secondary:              oklch(0.95 0.02 255);        /* bleu pâle           */
+    --secondary-foreground:   oklch(0.25 0.05 255);        /* navy sur bleu pâle  */
+
+    --muted:                  oklch(0.96 0.015 255);
+    --muted-foreground:       oklch(0.50 0.04 255);        /* gris-bleu           */
+
+    /* ── Accent — jaune doré ──────────────────────────────────────────────── */
+    --accent:                 oklch(0.92 0.12 88);         /* jaune doux          */
+    --accent-foreground:      oklch(0.30 0.08 80);         /* brun-or sur jaune   */
+
+    --destructive:            oklch(0.577 0.245 27.325);
+    --destructive-foreground: oklch(0.985 0 0);
+
+    --border:                 oklch(0.90 0.02 255);        /* bleu-gris clair     */
+    --input:                  oklch(0.90 0.02 255);
+    --ring:                   oklch(0.52 0.22 255);        /* focus = bleu cobalt */
+    --radius:                 0.625rem;
+
+    /* ── Sidebar — navy profond avec accents jaunes ───────────────────────── */
+    --sidebar:                        oklch(0.22 0.06 260);   /* navy               */
+    --sidebar-foreground:             oklch(0.97 0 0);        /* blanc              */
+    --sidebar-primary:                oklch(0.82 0.17 88);    /* jaune doré actif   */
+    --sidebar-primary-foreground:     oklch(0.20 0.06 80);    /* brun foncé         */
+    --sidebar-accent:                 oklch(0.32 0.06 258);   /* navy hover         */
+    --sidebar-accent-foreground:      oklch(0.97 0 0);
+    --sidebar-border:                 oklch(1 0 0 / 10%);
+    --sidebar-ring:                   oklch(0.82 0.17 88);
+
+    /* ── Semantic status colors ─────────────────────────────────────────────── */
+    /* Modifiez uniquement ici pour rethémer toute l'application               */
+
+    /* Warning — jaune (aussi couleur de marque) */
+    --warning:                    oklch(0.795 0.184 86.047);   /* yellow-500  */
+    --warning-foreground:         oklch(0.554 0.135 66.442);   /* yellow-700  */
+    --warning-surface:            oklch(0.987 0.026 102.212);  /* yellow-50   */
+    --warning-surface-border:     oklch(0.945 0.129 101.54);   /* yellow-200  */
+    --warning-surface-foreground: oklch(0.476 0.114 61.907);   /* yellow-800  */
+
+    /* Success — vert */
+    --success:                    oklch(0.627 0.194 149.214);  /* green-600   */
+    --success-foreground:         oklch(0.985 0 0);
+    --success-border:             oklch(0.792 0.209 151.711);  /* green-400   */
+
+    /* Caution — orange */
+    --caution:                    oklch(0.646 0.222 41.116);   /* orange-600  */
+    --caution-border:             oklch(0.837 0.128 66.29);    /* orange-300  */
+
+    /* Info — bleu (même teinte que primary) */
+    --info:                       oklch(0.52 0.22 255);        /* bleu cobalt */
+    --info-surface:               oklch(0.95 0.02 255);        /* bleu pâle   */
+
+    /* Couleurs des cartes stat (dashboard) */
+    --chart-1:                    oklch(0.52 0.22 255);        /* bleu cobalt  — Projets       */
+    --chart-1-surface:            oklch(0.95 0.02 255);        /* bleu pâle                    */
+    --chart-2:                    oklch(0.627 0.194 149.214);  /* vert         — Fichiers      */
+    --chart-2-surface:            oklch(0.982 0.018 155.826);  /* vert pâle                    */
+    --chart-3:                    oklch(0.795 0.184 86.047);   /* jaune doré   — Conversations */
+    --chart-3-surface:            oklch(0.987 0.026 102.212);  /* jaune pâle                   */
+    --chart-4:                    oklch(0.646 0.222 41.116);   /* orange       — Requêtes IA   */
+    --chart-4-surface:            oklch(0.98 0.016 73.684);    /* orange pâle                  */
+  }
+
+  .dark {
+    /* ── Base ─────────────────────────────────────────────────────────────── */
+    --background:             oklch(0.155 0.025 260);      /* navy très foncé     */
+    --foreground:             oklch(0.97 0 0);
+    --card:                   oklch(0.195 0.03 258);       /* navy légèrement clair */
+    --card-foreground:        oklch(0.97 0 0);
+    --popover:                oklch(0.195 0.03 258);
+    --popover-foreground:     oklch(0.97 0 0);
+
+    /* ── Primaire — bleu plus lumineux en dark ───────────────────────────── */
+    --primary:                oklch(0.65 0.22 252);        /* bleu vif            */
+    --primary-foreground:     oklch(0.12 0.03 260);        /* navy sur bleu       */
+
+    --secondary:              oklch(0.245 0.035 258);      /* navy secondaire     */
+    --secondary-foreground:   oklch(0.97 0 0);
+
+    --muted:                  oklch(0.245 0.035 258);
+    --muted-foreground:       oklch(0.67 0.04 255);
+
+    --accent:                 oklch(0.30 0.08 88);         /* jaune foncé         */
+    --accent-foreground:      oklch(0.93 0.12 88);         /* jaune clair         */
+
+    --destructive:            oklch(0.704 0.191 22.216);
+    --destructive-foreground: oklch(0.985 0 0);
+
+    --border:                 oklch(1 0 0 / 10%);
+    --input:                  oklch(1 0 0 / 15%);
+    --ring:                   oklch(0.65 0.22 252);
+    --radius:                 0.625rem;
+
+    /* ── Sidebar — navy plus sombre en dark ─────────────────────────────── */
+    --sidebar:                        oklch(0.175 0.03 262);
+    --sidebar-foreground:             oklch(0.97 0 0);
+    --sidebar-primary:                oklch(0.82 0.17 88);    /* jaune doré         */
+    --sidebar-primary-foreground:     oklch(0.18 0.05 80);
+    --sidebar-accent:                 oklch(0.245 0.035 258);
+    --sidebar-accent-foreground:      oklch(0.97 0 0);
+    --sidebar-border:                 oklch(1 0 0 / 8%);
+    --sidebar-ring:                   oklch(0.82 0.17 88);
+
+    /* ── Semantic status colors ─────────────────────────────────────────────── */
+
+    /* Warning */
+    --warning:                    oklch(0.852 0.199 91.936);   /* yellow-400  */
+    --warning-foreground:         oklch(0.852 0.199 91.936);
+    --warning-surface:            oklch(0.286 0.066 53.813);   /* yellow-950  */
+    --warning-surface-border:     oklch(0.421 0.095 57.708);   /* yellow-900  */
+    --warning-surface-foreground: oklch(0.905 0.182 98.111);   /* yellow-300  */
+
+    /* Success */
+    --success:                    oklch(0.723 0.219 149.579);  /* green-500   */
+    --success-foreground:         oklch(0.985 0 0);
+    --success-border:             oklch(0.723 0.219 149.579);
+
+    /* Caution */
+    --caution:                    oklch(0.75 0.183 55.934);    /* orange-400  */
+    --caution-border:             oklch(0.75 0.183 55.934);
+
+    /* Info */
+    --info:                       oklch(0.65 0.22 252);        /* bleu vif    */
+    --info-surface:               oklch(0.245 0.035 258);
+
+    /* Couleurs des cartes stat */
+    --chart-1:                    oklch(0.65 0.22 252);        /* bleu vif    */
+    --chart-1-surface:            oklch(0.245 0.035 258);
+    --chart-2:                    oklch(0.723 0.219 149.579);  /* vert-500    */
+    --chart-2-surface:            oklch(0.2 0.075 150.272);    /* vert-950    */
+    --chart-3:                    oklch(0.852 0.199 91.936);   /* jaune-400   */
+    --chart-3-surface:            oklch(0.286 0.066 53.813);   /* jaune-950   */
+    --chart-4:                    oklch(0.705 0.213 47.604);   /* orange-500  */
+    --chart-4-surface:            oklch(0.266 0.079 36.259);   /* orange-950  */
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@theme inline {
+  --color-background:             var(--background);
+  --color-foreground:             var(--foreground);
+  --color-card:                   var(--card);
+  --color-card-foreground:        var(--card-foreground);
+  --color-popover:                var(--popover);
+  --color-popover-foreground:     var(--popover-foreground);
+  --color-primary:                var(--primary);
+  --color-primary-foreground:     var(--primary-foreground);
+  --color-secondary:              var(--secondary);
+  --color-secondary-foreground:   var(--secondary-foreground);
+  --color-muted:                  var(--muted);
+  --color-muted-foreground:       var(--muted-foreground);
+  --color-accent:                 var(--accent);
+  --color-accent-foreground:      var(--accent-foreground);
+  --color-destructive:            var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border:                 var(--border);
+  --color-input:                  var(--input);
+  --color-ring:                   var(--ring);
+  --color-sidebar:                        var(--sidebar);
+  --color-sidebar-foreground:             var(--sidebar-foreground);
+  --color-sidebar-primary:                var(--sidebar-primary);
+  --color-sidebar-primary-foreground:     var(--sidebar-primary-foreground);
+  --color-sidebar-accent:                 var(--sidebar-accent);
+  --color-sidebar-accent-foreground:      var(--sidebar-accent-foreground);
+  --color-sidebar-border:                 var(--sidebar-border);
+  --color-sidebar-ring:                   var(--sidebar-ring);
+  --font-sans:   var(--font-geist-sans);
+  --font-mono:   var(--font-geist-mono);
+  --radius-sm:   calc(var(--radius) - 4px);
+  --radius-md:   calc(var(--radius) - 2px);
+  --radius-lg:   var(--radius);
+  --radius-xl:   calc(var(--radius) + 4px);
+
+  /* ── Semantic status colors ─────────────────────────────────────────────── */
+  --color-warning:                    var(--warning);
+  --color-warning-foreground:         var(--warning-foreground);
+  --color-warning-surface:            var(--warning-surface);
+  --color-warning-surface-border:     var(--warning-surface-border);
+  --color-warning-surface-foreground: var(--warning-surface-foreground);
+  --color-success:                    var(--success);
+  --color-success-foreground:         var(--success-foreground);
+  --color-success-border:             var(--success-border);
+  --color-caution:                    var(--caution);
+  --color-caution-border:             var(--caution-border);
+  --color-info:                       var(--info);
+  --color-info-surface:               var(--info-surface);
+  --color-chart-1:                    var(--chart-1);
+  --color-chart-1-surface:            var(--chart-1-surface);
+  --color-chart-2:                    var(--chart-2);
+  --color-chart-2-surface:            var(--chart-2-surface);
+  --color-chart-3:                    var(--chart-3);
+  --color-chart-3-surface:            var(--chart-3-surface);
+  --color-chart-4:                    var(--chart-4);
+  --color-chart-4-surface:            var(--chart-4-surface);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }

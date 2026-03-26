@@ -1,0 +1,414 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import {
+  Send, Bot, User, Loader2, MessageSquare, Zap, Database,
+  ThumbsUp, ThumbsDown, X,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
+import { streamChat } from "@/services/chat.service";
+import { conversationsService } from "@/services/conversations.service";
+import { feedbackService, NEGATIVE_CATEGORIES } from "@/services/feedback.service";
+import type { FeedbackRating } from "@/services/feedback.service";
+import { toast } from "sonner";
+import type { Project, ConversationMessage } from "@/types";
+
+// ── UI message ─────────────────────────────────────────────────────────────
+
+interface UiMessage extends ConversationMessage {
+  streaming?: boolean;
+  source_type?: string;
+  cached?: boolean;
+  response_time?: number;
+  /** Real backend message ID (from SSE meta event or loaded from history). */
+  backend_id?: string;
+  /** Feedback already submitted for this message. */
+  feedback?: FeedbackRating;
+}
+
+interface Props {
+  project: Project | null;
+  apiKey: string;
+  conversationId?: string;
+  onConversationCreated?: (id: string) => void;
+}
+
+export function ChatInterface({ project, apiKey, conversationId, onConversationCreated }: Props) {
+  const [messages, setMessages]       = useState<UiMessage[]>([]);
+  const [input, setInput]             = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [activeConvId, setActiveConvId] = useState(conversationId);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const stopRef   = useRef<(() => void) | null>(null);
+
+  // Load conversation history
+  useEffect(() => {
+    setActiveConvId(conversationId);
+    if (!conversationId || !project) { setMessages([]); return; }
+    conversationsService.messages(conversationId, apiKey).then((r) => {
+      if (r.ok) {
+        // For history messages, id IS the real backend message id
+        setMessages(r.data.messages.map((m) => ({ ...m, backend_id: m.id }) as UiMessage));
+      }
+    });
+  }, [conversationId, project]);
+
+  // Auto-scroll
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [messages]);
+
+  const sendMessage = () => {
+    if (!input.trim() || !project || isStreaming) return;
+
+    const userMsg: UiMessage = {
+      id:              crypto.randomUUID(),
+      conversation_id: activeConvId ?? "",
+      role:            "user",
+      content:         input.trim(),
+      timestamp:       new Date().toISOString(),
+    };
+    const assistantId = crypto.randomUUID();
+    const assistantMsg: UiMessage = {
+      id:              assistantId,
+      conversation_id: activeConvId ?? "",
+      role:            "assistant",
+      content:         "",
+      timestamp:       new Date().toISOString(),
+      streaming:       true,
+    };
+
+    setMessages((prev) => [...prev, userMsg, assistantMsg]);
+    setInput("");
+    setIsStreaming(true);
+    stopRef.current?.();
+
+    const { stop } = streamChat(
+      { message: userMsg.content, apiKey, conversationId: activeConvId },
+      {
+        onChunk: (text) =>
+          setMessages((prev) =>
+            prev.map((m) => m.id === assistantId ? { ...m, content: m.content + text } : m)
+          ),
+
+        onDone: (meta) => {
+          if (meta.conversationId && !activeConvId) {
+            setActiveConvId(meta.conversationId);
+            onConversationCreated?.(meta.conversationId);
+          }
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId
+                ? {
+                    ...m,
+                    streaming:     false,
+                    source_type:   meta.sourceType,
+                    cached:        meta.cached,
+                    response_time: meta.responseTime,
+                    backend_id:    meta.messageId,
+                  }
+                : m
+            )
+          );
+          setIsStreaming(false);
+          stopRef.current = null;
+        },
+
+        onError: (msg) => {
+          toast.error(msg);
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, streaming: false, content: m.content || "Une erreur est survenue." }
+                : m
+            )
+          );
+          setIsStreaming(false);
+          stopRef.current = null;
+        },
+      }
+    );
+
+    stopRef.current = stop;
+  };
+
+  const stopStream = () => {
+    stopRef.current?.();
+    stopRef.current = null;
+    setIsStreaming(false);
+    setMessages((prev) => prev.map((m) => m.streaming ? { ...m, streaming: false } : m));
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  };
+
+  const handleFeedback = async (
+    localId: string,
+    backendId: string,
+    rating: FeedbackRating,
+    comment?: string,
+    categories?: string[]
+  ) => {
+    // Optimistic update
+    setMessages((prev) =>
+      prev.map((m) => m.id === localId ? { ...m, feedback: rating } : m)
+    );
+    await feedbackService.create(backendId, rating, apiKey, comment, categories);
+  };
+
+  if (!project) {
+    return (
+      <div className="flex flex-col items-center justify-center flex-1 gap-3 text-muted-foreground p-8">
+        <Database className="size-12" />
+        <p className="font-medium">Sélectionnez un projet</p>
+        <p className="text-sm text-center">
+          Choisissez un projet dans le panneau gauche pour démarrer une conversation.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      <ScrollArea ref={scrollRef} className="flex-1 p-4">
+        {messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full min-h-64 gap-3 text-muted-foreground">
+            <MessageSquare className="size-10" />
+            <p className="font-medium">Posez votre première question</p>
+            <p className="text-sm text-center max-w-sm">
+              L&apos;IA utilisera vos fichiers indexés pour répondre avec précision.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4 max-w-3xl mx-auto">
+            {messages.map((msg) => (
+              <MessageBubble
+                key={msg.id}
+                message={msg}
+                onFeedback={(rating, comment, categories) => {
+                  if (!msg.backend_id) return;
+                  handleFeedback(msg.id, msg.backend_id, rating, comment, categories);
+                }}
+              />
+            ))}
+          </div>
+        )}
+      </ScrollArea>
+
+      {/* Input */}
+      <div className="border-t border-border p-4">
+        <div className="max-w-3xl mx-auto">
+          <div className="relative flex items-end gap-2 rounded-xl border border-border bg-background shadow-sm p-3">
+            <textarea
+              placeholder="Posez une question sur vos données…"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              rows={1}
+              className="flex-1 resize-none bg-transparent p-0 text-sm outline-none placeholder:text-muted-foreground min-h-6 max-h-40 disabled:opacity-50"
+              disabled={isStreaming}
+            />
+            {isStreaming ? (
+              <Button size="icon" variant="destructive" className="size-8 shrink-0" onClick={stopStream}>
+                <Loader2 className="size-4 animate-spin" />
+              </Button>
+            ) : (
+              <Button size="icon" className="size-8 shrink-0" onClick={sendMessage} disabled={!input.trim()}>
+                <Send className="size-4" />
+              </Button>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground text-center mt-2">
+            Entrée pour envoyer · Maj+Entrée pour nouvelle ligne
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── MessageBubble ─────────────────────────────────────────────────────────
+
+interface BubbleProps {
+  message: UiMessage;
+  onFeedback: (rating: FeedbackRating, comment?: string, categories?: string[]) => void;
+}
+
+function MessageBubble({ message, onFeedback }: BubbleProps) {
+  const isUser = message.role === "user";
+  const [showComment, setShowComment]   = useState(false);
+  const [comment, setComment]           = useState("");
+  const [selectedCats, setSelectedCats] = useState<string[]>([]);
+  const [submitting, setSubmitting]     = useState(false);
+
+  const handleThumbUp = () => {
+    if (message.feedback) return;
+    onFeedback("positive");
+    setShowComment(false);
+  };
+
+  const handleThumbDown = () => {
+    if (message.feedback) return;
+    setShowComment(true);
+  };
+
+  const handleSubmitNegative = async () => {
+    setSubmitting(true);
+    onFeedback("negative", comment.trim() || undefined, selectedCats.length ? selectedCats : undefined);
+    setShowComment(false);
+    setSubmitting(false);
+  };
+
+  const toggleCat = (val: string) =>
+    setSelectedCats((prev) =>
+      prev.includes(val) ? prev.filter((c) => c !== val) : [...prev, val]
+    );
+
+  return (
+    <div className={cn("flex gap-3", isUser && "flex-row-reverse")}>
+      <div className={cn(
+        "flex size-7 shrink-0 items-center justify-center rounded-full mt-0.5",
+        isUser ? "bg-primary text-primary-foreground" : "bg-muted"
+      )}>
+        {isUser ? <User className="size-3.5" /> : <Bot className="size-3.5 text-muted-foreground" />}
+      </div>
+
+      <div className={cn("max-w-[80%] space-y-1", isUser && "items-end flex flex-col")}>
+        {/* Bubble */}
+        <div className={cn(
+          "rounded-2xl px-4 py-2.5 text-sm",
+          isUser
+            ? "bg-primary text-primary-foreground rounded-tr-sm"
+            : "bg-muted text-foreground rounded-tl-sm"
+        )}>
+          {message.streaming && !message.content ? (
+            <span className="flex items-center gap-1.5">
+              {[0, 150, 300].map((d) => (
+                <span key={d} className="size-1.5 rounded-full bg-current animate-bounce"
+                  style={{ animationDelay: `${d}ms` }} />
+              ))}
+            </span>
+          ) : (
+            <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+          )}
+          {message.streaming && message.content && (
+            <span className="inline-block w-0.5 h-3.5 bg-current ml-0.5 animate-pulse align-middle" />
+          )}
+        </div>
+
+        {/* Meta badges + feedback — assistant only, after streaming */}
+        {!isUser && !message.streaming && (
+          <div className="flex flex-wrap items-center gap-1 px-1">
+            {message.source_type && (
+              <Badge variant="outline" className="text-xs h-4 gap-1">
+                <Database className="size-2.5" />{message.source_type}
+              </Badge>
+            )}
+            {message.cached && (
+              <Badge variant="outline" className="text-xs h-4 gap-1 text-success border-success-border">
+                <Zap className="size-2.5" />Cached
+              </Badge>
+            )}
+            {message.response_time !== undefined && (
+              <Badge variant="outline" className="text-xs h-4">
+                {message.response_time.toFixed(2)}s
+              </Badge>
+            )}
+
+            {/* Feedback */}
+            {message.backend_id && !message.feedback && (
+              <div className="flex items-center gap-0.5 ml-1">
+                <button
+                  onClick={handleThumbUp}
+                  className="size-5 flex items-center justify-center rounded text-muted-foreground hover:text-success hover:bg-success/10 transition-colors"
+                  title="Bonne réponse"
+                >
+                  <ThumbsUp className="size-3" />
+                </button>
+                <button
+                  onClick={handleThumbDown}
+                  className="size-5 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                  title="Mauvaise réponse"
+                >
+                  <ThumbsDown className="size-3" />
+                </button>
+              </div>
+            )}
+            {message.feedback === "positive" && (
+              <span className="flex items-center gap-1 text-xs text-success ml-1">
+                <ThumbsUp className="size-3" />Utile
+              </span>
+            )}
+            {message.feedback === "negative" && !showComment && (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground ml-1">
+                <ThumbsDown className="size-3" />Feedback envoyé
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Negative feedback comment panel */}
+        {showComment && (
+          <div className="w-full mt-1 rounded-xl border border-border bg-background p-3 space-y-2 shadow-sm">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-foreground">Qu&apos;est-ce qui n&apos;allait pas ?</p>
+              <button
+                onClick={() => setShowComment(false)}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+
+            {/* Category chips */}
+            <div className="flex flex-wrap gap-1.5">
+              {NEGATIVE_CATEGORIES.map((cat) => (
+                <button
+                  key={cat.value}
+                  onClick={() => toggleCat(cat.value)}
+                  className={cn(
+                    "text-xs px-2 py-0.5 rounded-full border transition-colors",
+                    selectedCats.includes(cat.value)
+                      ? "bg-destructive/10 border-destructive/50 text-destructive"
+                      : "border-border text-muted-foreground hover:border-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Comment textarea */}
+            <Textarea
+              placeholder="Commentaire optionnel…"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              rows={2}
+              className="text-xs resize-none"
+            />
+
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => setShowComment(false)}>
+                Annuler
+              </Button>
+              <Button
+                size="sm"
+                className="h-6 text-xs px-3"
+                onClick={handleSubmitNegative}
+                disabled={submitting}
+              >
+                {submitting && <Loader2 className="size-3 mr-1 animate-spin" />}
+                Envoyer
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
