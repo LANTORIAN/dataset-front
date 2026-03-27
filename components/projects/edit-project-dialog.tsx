@@ -30,6 +30,9 @@ export function EditProjectDialog({ project, open, onClose, onSaved }: Props) {
   const [assistantRole, setRole]    = useState(cfg?.assistant_role ?? "");
   const [assistantTone, setTone]    = useState(cfg?.assistant_tone ?? "");
   const [maxCtx, setMaxCtx]         = useState(String(cfg?.max_context_messages ?? 10));
+  const [contactEmail, setContactEmail] = useState(cfg?.contact_email ?? "");
+  const [contactPhone, setContactPhone] = useState(cfg?.contact_phone ?? "");
+  const [contactWeb, setContactWeb]     = useState(cfg?.contact_website ?? "");
   const [showAdvanced, setShowAdv]  = useState(false);
   const [loading, setLoading]       = useState(false);
 
@@ -45,6 +48,9 @@ export function EditProjectDialog({ project, open, onClose, onSaved }: Props) {
       assistant_role:       assistantRole.trim() || undefined,
       assistant_tone:       assistantTone.trim() || undefined,
       max_context_messages: parseInt(maxCtx, 10) || undefined,
+      contact_email:       contactEmail.trim() || undefined,
+      contact_phone:       contactPhone.trim() || undefined,
+      contact_website:     contactWeb.trim() || undefined,
     });
     setLoading(false);
     if (result.ok) {
@@ -125,6 +131,28 @@ export function EditProjectDialog({ project, open, onClose, onSaved }: Props) {
                 <Input id="edit-ctx" type="number" min={1} max={50} value={maxCtx}
                   onChange={(e) => setMaxCtx(String(Math.min(50, Math.max(1, Number(e.target.value)))))}
                   className="h-8 text-sm w-24" />
+              </div>
+
+              <Separator />
+              <p className="text-xs font-medium text-muted-foreground">Informations de contact (affichées par le chatbot)</p>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-contact-email" className="text-xs">Email de contact</Label>
+                <Input id="edit-contact-email" type="email" placeholder="dev@bluevaloris.com" value={contactEmail}
+                  onChange={(e) => setContactEmail(e.target.value)} maxLength={255} className="h-8 text-sm" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-contact-phone" className="text-xs">Téléphone</Label>
+                  <Input id="edit-contact-phone" placeholder="+33 1 23 45 67 89" value={contactPhone}
+                    onChange={(e) => setContactPhone(e.target.value)} maxLength={50} className="h-8 text-sm" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-contact-web" className="text-xs">Site web</Label>
+                  <Input id="edit-contact-web" placeholder="https://bluevaloris.com" value={contactWeb}
+                    onChange={(e) => setContactWeb(e.target.value)} maxLength={500} className="h-8 text-sm" />
+                </div>
               </div>
             </div>
           )}

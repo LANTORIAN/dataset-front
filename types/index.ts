@@ -91,6 +91,9 @@ export interface CreateProjectPayload {
   assistant_role?: string;
   assistant_tone?: string;
   max_context_messages?: number;
+  contact_email?: string;
+  contact_phone?: string;
+  contact_website?: string;
 }
 
 export type UpdateProjectPayload = Partial<CreateProjectPayload>;

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import {
   User, Palette, Sun, Moon, Monitor, Save, KeyRound, Eye, EyeOff, Shield,
+  Mail, Send,
 } from "lucide-react";
 import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
@@ -17,6 +18,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/context/auth-context";
 import { usersService } from "@/services/users.service";
+import { adminSettingsService, type SmtpSettings } from "@/services/admin-settings.service";
 
 const THEME_OPTIONS = [
   { value: "light",  label: "Clair",   icon: Sun },
@@ -47,6 +49,35 @@ export function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPasswords, setShowPasswords]     = useState(false);
   const [savingPassword, setSavingPassword]   = useState(false);
+
+  // SMTP state (admin only)
+  const [smtp, setSmtp] = useState<SmtpSettings>({
+    smtp_host: "", smtp_port: "587", smtp_user: "", smtp_password: "", smtp_from: "", support_email: "",
+  });
+  const [smtpLoaded, setSmtpLoaded] = useState(false);
+  const [savingSmtp, setSavingSmtp] = useState(false);
+  const [testingSmtp, setTestingSmtp] = useState(false);
+
+  useEffect(() => {
+    if (isAdmin && !smtpLoaded) {
+      adminSettingsService.getSmtp().then((r) => {
+        if (r.ok) { setSmtp(r.data); setSmtpLoaded(true); }
+      });
+    }
+  }, [isAdmin, smtpLoaded]);
+
+  const handleSaveSmtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingSmtp(true);
+    await adminSettingsService.updateSmtp(smtp);
+    setSavingSmtp(false);
+  };
+
+  const handleTestSmtp = async () => {
+    setTestingSmtp(true);
+    await adminSettingsService.testSmtp();
+    setTestingSmtp(false);
+  };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -246,6 +277,72 @@ export function SettingsPage() {
           </form>
         </CardContent>
       </Card>
+
+      {/* ── SMTP (admin only) ── */}
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Mail className="size-4 text-muted-foreground" />
+              <CardTitle className="text-base">Configuration SMTP</CardTitle>
+            </div>
+            <CardDescription>Paramètres d&apos;envoi d&apos;emails (notifications, support, vérification).</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSaveSmtp} className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="smtp-host">Serveur SMTP</Label>
+                  <Input id="smtp-host" value={smtp.smtp_host} placeholder="smtp.gmail.com"
+                    onChange={(e) => setSmtp((s) => ({ ...s, smtp_host: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="smtp-port">Port</Label>
+                  <Input id="smtp-port" value={smtp.smtp_port} placeholder="587"
+                    onChange={(e) => setSmtp((s) => ({ ...s, smtp_port: e.target.value }))} />
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="smtp-user">Utilisateur SMTP</Label>
+                  <Input id="smtp-user" value={smtp.smtp_user} placeholder="noreply@bluevaloris.com"
+                    onChange={(e) => setSmtp((s) => ({ ...s, smtp_user: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="smtp-password">Mot de passe SMTP</Label>
+                  <Input id="smtp-password" type="password" value={smtp.smtp_password} placeholder="••••••••"
+                    onChange={(e) => setSmtp((s) => ({ ...s, smtp_password: e.target.value }))} />
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="smtp-from">Adresse expéditeur</Label>
+                  <Input id="smtp-from" type="email" value={smtp.smtp_from} placeholder="noreply@bluevaloris.com"
+                    onChange={(e) => setSmtp((s) => ({ ...s, smtp_from: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="support-email">Email support (destinataire tickets)</Label>
+                  <Input id="support-email" type="email" value={smtp.support_email} placeholder="dev@bluevaloris.com"
+                    onChange={(e) => setSmtp((s) => ({ ...s, support_email: e.target.value }))} />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={handleTestSmtp} disabled={testingSmtp} className="gap-2">
+                  <Send className="size-3.5" />
+                  {testingSmtp ? "Envoi…" : "Tester"}
+                </Button>
+                <Button type="submit" size="sm" disabled={savingSmtp} className="gap-2">
+                  <Save className="size-3.5" />
+                  {savingSmtp ? "Enregistrement…" : "Enregistrer"}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ── Thème ── */}
       <Card>

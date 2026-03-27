@@ -16,6 +16,7 @@ import { feedbackService, NEGATIVE_CATEGORIES } from "@/services/feedback.servic
 import type { FeedbackRating } from "@/services/feedback.service";
 import { toast } from "sonner";
 import type { Project, ConversationMessage } from "@/types";
+import { useAuth } from "@/lib/context/auth-context";
 
 // ── UI message ─────────────────────────────────────────────────────────────
 
@@ -38,6 +39,7 @@ interface Props {
 }
 
 export function ChatInterface({ project, apiKey, conversationId, onConversationCreated }: Props) {
+  const { isAdmin } = useAuth();
   const [messages, setMessages]       = useState<UiMessage[]>([]);
   const [input, setInput]             = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -62,8 +64,19 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     if (!input.trim() || !project || isStreaming) return;
+
+    // If no conversation yet, create one
+    if (!activeConvId) {
+      const result = await conversationsService.create(apiKey);
+      if (!result.ok) {
+        toast.error("Impossible de créer une conversation");
+        return;
+      }
+      setActiveConvId(result.data.id);
+      onConversationCreated?.(result.data.id);
+    }
 
     const userMsg: UiMessage = {
       id:              crypto.randomUUID(),
@@ -96,10 +109,6 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
           ),
 
         onDone: (meta) => {
-          if (meta.conversationId && !activeConvId) {
-            setActiveConvId(meta.conversationId);
-            onConversationCreated?.(meta.conversationId);
-          }
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantId
@@ -190,6 +199,7 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
               <MessageBubble
                 key={msg.id}
                 message={msg}
+                isAdmin={isAdmin}
                 onFeedback={(rating, comment, categories) => {
                   if (!msg.backend_id) return;
                   handleFeedback(msg.id, msg.backend_id, rating, comment, categories);
@@ -236,10 +246,11 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
 
 interface BubbleProps {
   message: UiMessage;
+  isAdmin?: boolean;
   onFeedback: (rating: FeedbackRating, comment?: string, categories?: string[]) => void;
 }
 
-function MessageBubble({ message, onFeedback }: BubbleProps) {
+function MessageBubble({ message, isAdmin, onFeedback }: BubbleProps) {
   const isUser = message.role === "user";
   const [showComment, setShowComment]   = useState(false);
   const [comment, setComment]           = useState("");
@@ -304,17 +315,17 @@ function MessageBubble({ message, onFeedback }: BubbleProps) {
         {/* Meta badges + feedback — assistant only, after streaming */}
         {!isUser && !message.streaming && (
           <div className="flex flex-wrap items-center gap-1 px-1">
-            {message.source_type && (
+            {isAdmin && message.source_type && (
               <Badge variant="outline" className="text-xs h-4 gap-1">
                 <Database className="size-2.5" />{message.source_type}
               </Badge>
             )}
-            {message.cached && (
+            {isAdmin && message.cached && (
               <Badge variant="outline" className="text-xs h-4 gap-1 text-success border-success-border">
                 <Zap className="size-2.5" />Cached
               </Badge>
             )}
-            {message.response_time !== undefined && (
+            {isAdmin && message.response_time !== undefined && (
               <Badge variant="outline" className="text-xs h-4">
                 {message.response_time.toFixed(2)}s
               </Badge>
