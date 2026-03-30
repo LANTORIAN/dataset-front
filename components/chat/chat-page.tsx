@@ -1,7 +1,7 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { ChatInterface } from "./chat-interface";
 import { ConversationsSidebar } from "./conversations-sidebar";
 import { projectsService } from "@/services/projects.service";
@@ -12,14 +12,26 @@ import { History } from "lucide-react";
 
 export function ChatPage() {
   const searchParams     = useSearchParams();
+  const router           = useRouter();
+  const pathname         = usePathname();
   const defaultProjectId = searchParams.get("project") ?? "";
+  const defaultConvId    = searchParams.get("conversation") ?? undefined;
 
   const [projects, setProjects]               = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState(defaultProjectId);
   const [resolvedApiKey, setResolvedApiKey]   = useState("");
-  const [activeConversationId, setActiveConversationId] = useState<string | undefined>();
+  const [activeConversationId, setActiveConversationId] = useState<string | undefined>(defaultConvId);
   const [convRefreshKey, setConvRefreshKey]   = useState(0);
+
+  // Keep URL in sync with project + conversation selection
+  const syncUrl = useCallback((projectId: string, convId?: string) => {
+    const params = new URLSearchParams();
+    if (projectId) params.set("project", projectId);
+    if (convId) params.set("conversation", convId);
+    const qs = params.toString();
+    router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+  }, [router, pathname]);
 
   // Load all projects (load enough for the selector — 100 max)
   useEffect(() => {
@@ -44,15 +56,31 @@ export function ChatPage() {
     });
   }, [selectedProjectId, projects]);
 
+  const handleSelectProject = useCallback((id: string) => {
+    setSelectedProjectId(id);
+    setActiveConversationId(undefined);
+    syncUrl(id);
+  }, [syncUrl]);
+
+  const handleSelectConversation = useCallback((id: string) => {
+    setActiveConversationId(id);
+    syncUrl(selectedProjectId, id);
+  }, [syncUrl, selectedProjectId]);
+
+  const handleNewConversation = useCallback(() => {
+    setActiveConversationId(undefined);
+    syncUrl(selectedProjectId);
+  }, [syncUrl, selectedProjectId]);
+
   const sidebarProps = {
     projects,
     selectedProjectId,
     apiKey: resolvedApiKey,
     activeConversationId,
     refreshTrigger: convRefreshKey,
-    onSelectProject: setSelectedProjectId,
-    onSelectConversation: setActiveConversationId,
-    onNewConversation: () => setActiveConversationId(undefined),
+    onSelectProject: handleSelectProject,
+    onSelectConversation: handleSelectConversation,
+    onNewConversation: handleNewConversation,
   };
 
   return (
@@ -85,6 +113,7 @@ export function ChatPage() {
           onConversationCreated={(id) => {
             setActiveConversationId(id);
             setConvRefreshKey((k) => k + 1);
+            syncUrl(selectedProjectId, id);
           }}
         />
       </div>
