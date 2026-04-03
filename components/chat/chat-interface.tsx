@@ -29,6 +29,7 @@ interface UiMessage extends ConversationMessage {
   backend_id?: string;
   /** Feedback already submitted for this message. */
   feedback?: FeedbackRating;
+  progress_steps?: Array<{ step: string; message: string }>;
 }
 
 interface Props {
@@ -93,6 +94,7 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
       content:         "",
       timestamp:       new Date().toISOString(),
       streaming:       true,
+      progress_steps:  [{ step: "init", message: "Connexion au moteur IA..." }],
     };
 
     setMessages((prev) => [...prev, userMsg, assistantMsg]);
@@ -108,6 +110,18 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
             prev.map((m) => m.id === assistantId ? { ...m, content: m.content + text } : m)
           ),
 
+        onProgress: ({ step, message }) =>
+          setMessages((prev) =>
+            prev.map((m) => {
+              if (m.id !== assistantId) return m;
+              const existing = m.progress_steps ?? [];
+              const next = existing.some((s) => s.step === step)
+                ? existing.map((s) => (s.step === step ? { ...s, message } : s))
+                : [...existing, { step, message }];
+              return { ...m, progress_steps: next };
+            })
+          ),
+
         onDone: (meta) => {
           setMessages((prev) =>
             prev.map((m) =>
@@ -119,6 +133,7 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
                     cached:        meta.cached,
                     response_time: meta.responseTime,
                     backend_id:    meta.messageId,
+                    progress_steps: m.progress_steps ?? [],
                   }
                 : m
             )
@@ -309,6 +324,17 @@ function MessageBubble({ message, isAdmin, onFeedback }: BubbleProps) {
           )}
           {message.streaming && message.content && (
             <span className="inline-block w-0.5 h-3.5 bg-current ml-0.5 animate-pulse align-middle" />
+          )}
+
+          {message.streaming && (message.progress_steps?.length ?? 0) > 0 && (
+            <div className="mt-2 space-y-1.5 border-t border-border/40 pt-2">
+              {message.progress_steps?.map((s, idx) => (
+                <div key={`${s.step}-${idx}`} className="text-xs opacity-90 flex items-center gap-2">
+                  <span className="size-1.5 rounded-full bg-current/70" />
+                  <span>{s.message}</span>
+                </div>
+              ))}
+            </div>
           )}
         </div>
 

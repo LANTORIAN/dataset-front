@@ -24,6 +24,8 @@ export interface StreamCallbacks {
   }) => void;
   /** Appelé en cas d'erreur (réseau ou erreur renvoyée par le backend). */
   onError: (message: string) => void;
+  /** Appelé à chaque étape de progression côté backend. */
+  onProgress?: (progress: { step: string; message: string }) => void;
 }
 
 // ── streamChat ─────────────────────────────────────────────────────────────
@@ -69,6 +71,18 @@ export function streamChat(
 
       if (eventName === "error") {
         callbacks.onError(data || "Erreur du serveur.");
+        return;
+      }
+
+      if (eventName === "progress") {
+        try {
+          const parsed = JSON.parse(data) as Record<string, unknown>;
+          const step = typeof parsed.step === "string" ? parsed.step : "progress";
+          const message = typeof parsed.message === "string" ? parsed.message : "Traitement en cours...";
+          callbacks.onProgress?.({ step, message });
+        } catch {
+          callbacks.onProgress?.({ step: "progress", message: data || "Traitement en cours..." });
+        }
         return;
       }
 
