@@ -51,6 +51,7 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
   // Load conversation history
   useEffect(() => {
     setActiveConvId(conversationId);
+    if (isStreaming) return;
     if (!conversationId || !project) { setMessages([]); return; }
     conversationsService.messages(conversationId, apiKey).then((r) => {
       if (r.ok) {
@@ -58,7 +59,7 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
         setMessages(r.data.messages.map((m) => ({ ...m, backend_id: m.id }) as UiMessage));
       }
     });
-  }, [conversationId, project]);
+  }, [conversationId, project, apiKey, isStreaming]);
 
   // Auto-scroll
   useEffect(() => {
@@ -68,20 +69,23 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
   const sendMessage = async () => {
     if (!input.trim() || !project || isStreaming) return;
 
+    let convId = activeConvId;
+
     // If no conversation yet, create one
-    if (!activeConvId) {
+    if (!convId) {
       const result = await conversationsService.create(apiKey);
       if (!result.ok) {
         toast.error("Impossible de créer une conversation");
         return;
       }
-      setActiveConvId(result.data.id);
-      onConversationCreated?.(result.data.id);
+      convId = result.data.id;
+      setActiveConvId(convId);
+      onConversationCreated?.(convId);
     }
 
     const userMsg: UiMessage = {
       id:              crypto.randomUUID(),
-      conversation_id: activeConvId ?? "",
+      conversation_id: convId,
       role:            "user",
       content:         input.trim(),
       timestamp:       new Date().toISOString(),
@@ -89,7 +93,7 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
     const assistantId = crypto.randomUUID();
     const assistantMsg: UiMessage = {
       id:              assistantId,
-      conversation_id: activeConvId ?? "",
+      conversation_id: convId,
       role:            "assistant",
       content:         "",
       timestamp:       new Date().toISOString(),
@@ -103,7 +107,7 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
     stopRef.current?.();
 
     const { stop } = streamChat(
-      { message: userMsg.content, apiKey, conversationId: activeConvId },
+      { message: userMsg.content, apiKey, conversationId: convId },
       {
         onChunk: (text) =>
           setMessages((prev) =>
@@ -123,6 +127,10 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
           ),
 
         onDone: (meta) => {
+          if (meta.conversationId && !activeConvId) {
+            setActiveConvId(meta.conversationId);
+            onConversationCreated?.(meta.conversationId);
+          }
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantId
