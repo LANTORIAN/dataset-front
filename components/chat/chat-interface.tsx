@@ -275,6 +275,7 @@ interface BubbleProps {
 
 function MessageBubble({ message, isAdmin, onFeedback }: BubbleProps) {
   const isUser = message.role === "user";
+  const isAsciiTable = !isUser && message.content.includes("Table ") && message.content.includes("+-") && message.content.includes("| ");
   const [showComment, setShowComment]   = useState(false);
   const [comment, setComment]           = useState("");
   const [selectedCats, setSelectedCats] = useState<string[]>([]);
@@ -328,7 +329,11 @@ function MessageBubble({ message, isAdmin, onFeedback }: BubbleProps) {
               ))}
             </span>
           ) : (
-            <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+            isAsciiTable ? (
+              <pre className="whitespace-pre overflow-x-auto text-xs leading-relaxed font-mono">{message.content}</pre>
+            ) : (
+              <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+            )
           )}
           {message.streaming && message.content && (
             <span className="inline-block w-0.5 h-3.5 bg-current ml-0.5 animate-pulse align-middle" />
