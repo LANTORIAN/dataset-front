@@ -16,6 +16,15 @@ export interface SmtpSettings {
   support_email: string;
 }
 
+export interface DbAssistantVisibilitySettings {
+  enabled: boolean;
+  allow_global_tables: boolean;
+  include_tables: string[];
+  exclude_tables: string[];
+  include_columns: string[];
+  exclude_columns: string[];
+}
+
 export const adminSettingsService = {
   getSmtp() {
     return withService(
@@ -35,6 +44,20 @@ export const adminSettingsService = {
     return withService(
       () => bearerPost<{ message: string }>("/admin/settings/smtp/test"),
       { successMessage: "Email de test envoyé !" },
+    );
+  },
+
+  getDbAssistantVisibility() {
+    return withService(
+      () => bearerGet<DbAssistantVisibilitySettings>("/admin/settings/db-assistant-visibility"),
+      { showErrorToast: true, errorMessage: "Impossible de charger la visibilité DB assistant" },
+    );
+  },
+
+  updateDbAssistantVisibility(payload: Partial<DbAssistantVisibilitySettings>) {
+    return withService(
+      () => bearerPut<{ message: string; settings: DbAssistantVisibilitySettings }>("/admin/settings/db-assistant-visibility", payload),
+      { successMessage: "Visibilité DB assistant mise à jour" },
     );
   },
 };

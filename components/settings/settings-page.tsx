@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import {
   User, Palette, Sun, Moon, Monitor, Save, KeyRound, Eye, EyeOff, Shield,
-  Mail, Send,
+  Mail, Send, Database,
 } from "lucide-react";
 import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
@@ -15,10 +15,15 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/context/auth-context";
 import { usersService } from "@/services/users.service";
-import { adminSettingsService, type SmtpSettings } from "@/services/admin-settings.service";
+import {
+  adminSettingsService,
+  type SmtpSettings,
+  type DbAssistantVisibilitySettings,
+} from "@/services/admin-settings.service";
 
 const THEME_OPTIONS = [
   { value: "light",  label: "Clair",   icon: Sun },
@@ -58,6 +63,28 @@ export function SettingsPage() {
   const [savingSmtp, setSavingSmtp] = useState(false);
   const [testingSmtp, setTestingSmtp] = useState(false);
 
+  // DB assistant visibility (admin only)
+  const [dbVisibility, setDbVisibility] = useState<DbAssistantVisibilitySettings>({
+    enabled: true,
+    allow_global_tables: false,
+    include_tables: [],
+    exclude_tables: [],
+    include_columns: [],
+    exclude_columns: [],
+  });
+  const [dbVisibilityLoaded, setDbVisibilityLoaded] = useState(false);
+  const [savingDbVisibility, setSavingDbVisibility] = useState(false);
+
+  const [includeTablesText, setIncludeTablesText] = useState("");
+  const [excludeTablesText, setExcludeTablesText] = useState("");
+  const [includeColumnsText, setIncludeColumnsText] = useState("");
+  const [excludeColumnsText, setExcludeColumnsText] = useState("");
+
+  const parseCsv = (value: string) => value
+    .split(",")
+    .map((v) => v.trim().toLowerCase())
+    .filter(Boolean);
+
   useEffect(() => {
     if (isAdmin && !smtpLoaded) {
       adminSettingsService.getSmtp().then((r) => {
@@ -65,6 +92,20 @@ export function SettingsPage() {
       });
     }
   }, [isAdmin, smtpLoaded]);
+
+  useEffect(() => {
+    if (isAdmin && !dbVisibilityLoaded) {
+      adminSettingsService.getDbAssistantVisibility().then((r) => {
+        if (!r.ok) return;
+        setDbVisibility(r.data);
+        setIncludeTablesText(r.data.include_tables.join(", "));
+        setExcludeTablesText(r.data.exclude_tables.join(", "));
+        setIncludeColumnsText(r.data.include_columns.join(", "));
+        setExcludeColumnsText(r.data.exclude_columns.join(", "));
+        setDbVisibilityLoaded(true);
+      });
+    }
+  }, [isAdmin, dbVisibilityLoaded]);
 
   const handleSaveSmtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,6 +118,24 @@ export function SettingsPage() {
     setTestingSmtp(true);
     await adminSettingsService.testSmtp();
     setTestingSmtp(false);
+  };
+
+  const handleSaveDbVisibility = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingDbVisibility(true);
+
+    const payload: Partial<DbAssistantVisibilitySettings> = {
+      enabled: dbVisibility.enabled,
+      allow_global_tables: dbVisibility.allow_global_tables,
+      include_tables: parseCsv(includeTablesText),
+      exclude_tables: parseCsv(excludeTablesText),
+      include_columns: parseCsv(includeColumnsText),
+      exclude_columns: parseCsv(excludeColumnsText),
+    };
+
+    const result = await adminSettingsService.updateDbAssistantVisibility(payload);
+    if (result.ok) setDbVisibility(result.data.settings);
+    setSavingDbVisibility(false);
   };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -337,6 +396,107 @@ export function SettingsPage() {
                 <Button type="submit" size="sm" disabled={savingSmtp} className="gap-2">
                   <Save className="size-3.5" />
                   {savingSmtp ? "Enregistrement…" : "Enregistrer"}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── DB Assistant visibility (admin only) ── */}
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Database className="size-4 text-muted-foreground" />
+              <CardTitle className="text-base">Visibilité base de données (Assistant)</CardTitle>
+            </div>
+            <CardDescription>
+              Définissez quelles tables/colonnes l&apos;assistant peut exposer dans ses réponses.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSaveDbVisibility} className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-lg border p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <Label htmlFor="db-enabled">Assistant DB activé</Label>
+                    <Switch
+                      id="db-enabled"
+                      checked={dbVisibility.enabled}
+                      onCheckedChange={(checked) => setDbVisibility((s) => ({ ...s, enabled: checked }))}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Désactive complètement les réponses basées sur les tables SQL.
+                  </p>
+                </div>
+
+                <div className="rounded-lg border p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <Label htmlFor="db-global">Autoriser tables globales</Label>
+                    <Switch
+                      id="db-global"
+                      checked={dbVisibility.allow_global_tables}
+                      onCheckedChange={(checked) => setDbVisibility((s) => ({ ...s, allow_global_tables: checked }))}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Autorise l&apos;accès aux tables sans <code>project_id</code> (à utiliser avec prudence).
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="db-include-tables">Tables autorisées (CSV)</Label>
+                  <Input
+                    id="db-include-tables"
+                    value={includeTablesText}
+                    onChange={(e) => setIncludeTablesText(e.target.value)}
+                    placeholder="projects, conversations, rag_files"
+                  />
+                  <p className="text-xs text-muted-foreground">Si renseigné, agit comme whitelist de tables.</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="db-exclude-tables">Tables bloquées (CSV)</Label>
+                  <Input
+                    id="db-exclude-tables"
+                    value={excludeTablesText}
+                    onChange={(e) => setExcludeTablesText(e.target.value)}
+                    placeholder="users, audit_logs"
+                  />
+                  <p className="text-xs text-muted-foreground">Prioritaire sur la liste autorisée.</p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="db-include-columns">Colonnes autorisées (CSV)</Label>
+                  <Input
+                    id="db-include-columns"
+                    value={includeColumnsText}
+                    onChange={(e) => setIncludeColumnsText(e.target.value)}
+                    placeholder="name, status, projects.description"
+                  />
+                  <p className="text-xs text-muted-foreground">Format accepté: <code>colonne</code> ou <code>table.colonne</code>.</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="db-exclude-columns">Colonnes bloquées (CSV)</Label>
+                  <Input
+                    id="db-exclude-columns"
+                    value={excludeColumnsText}
+                    onChange={(e) => setExcludeColumnsText(e.target.value)}
+                    placeholder="email, phone, users.display_name"
+                  />
+                  <p className="text-xs text-muted-foreground">Les colonnes sensibles restent masquées de toute façon.</p>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Button type="submit" size="sm" disabled={savingDbVisibility} className="gap-2">
+                  <Save className="size-3.5" />
+                  {savingDbVisibility ? "Enregistrement…" : "Enregistrer"}
                 </Button>
               </div>
             </form>
