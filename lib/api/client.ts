@@ -29,6 +29,39 @@ type AuthMode =
   | { type: "api-key"; key: string } // project X-API-Key header
   | { type: "none" };                // public endpoint
 
+let _refreshInFlight: Promise<boolean> | null = null;
+
+async function tryRefreshAccessToken(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  if (_refreshInFlight) return _refreshInFlight;
+
+  _refreshInFlight = fetch("/api/auth/refresh", { method: "POST" })
+    .then(async (res) => {
+      if (!res.ok) return false;
+      const data = await res.json().catch(() => null) as { access_token?: string } | null;
+      if (!data?.access_token) return false;
+      tokenStore.set(data.access_token);
+      return true;
+    })
+    .catch(() => false)
+    .finally(() => {
+      _refreshInFlight = null;
+    });
+
+  return _refreshInFlight;
+}
+
+async function parseResponseBody<T>(res: Response): Promise<T> {
+  if (res.status === 204) return undefined as T;
+
+  const contentType = (res.headers.get("content-type") ?? "").toLowerCase();
+  if (contentType.includes("application/json")) {
+    return res.json() as Promise<T>;
+  }
+
+  return res.text() as unknown as T;
+}
+
 function buildAuthHeaders(auth: AuthMode): Record<string, string> {
   if (auth.type === "bearer") {
     const token = tokenStore.get();
@@ -53,25 +86,38 @@ interface RequestOptions {
 async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = "GET", body, auth = { type: "bearer" }, headers = {}, raw = false } = options;
 
+  const requestHeaders: Record<string, string> = {
+    ...(!raw && body !== undefined ? { "Content-Type": "application/json" } : {}),
+    ...buildAuthHeaders(auth),
+    ...headers,
+  };
+
   const init: RequestInit = {
     method,
-    headers: {
-      ...(!raw && body !== undefined ? { "Content-Type": "application/json" } : {}),
-      ...buildAuthHeaders(auth),
-      ...headers,
-    },
+    headers: requestHeaders,
   };
 
   if (body !== undefined) {
     init.body = raw ? (body as BodyInit) : JSON.stringify(body);
   }
 
-  const res = await fetch(`${API_BASE}${path}`, init);
+  if (auth.type === "bearer" && !tokenStore.get()) {
+    await tryRefreshAccessToken();
+    Object.assign(requestHeaders, buildAuthHeaders(auth));
+  }
+
+  let res = await fetch(`${API_BASE}${path}`, init);
+
+  if (!res.ok && auth.type === "bearer" && res.status === 401) {
+    const refreshed = await tryRefreshAccessToken();
+    if (refreshed) {
+      Object.assign(requestHeaders, buildAuthHeaders(auth));
+      res = await fetch(`${API_BASE}${path}`, init);
+    }
+  }
 
   if (!res.ok) throw await parseApiError(res);
-  if (res.status === 204) return undefined as T;
-
-  return res.json() as Promise<T>;
+  return parseResponseBody<T>(res);
 }
 
 // ── Bearer (JWT) helpers ───────────────────────────────────────────────────
