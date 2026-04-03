@@ -273,9 +273,68 @@ interface BubbleProps {
   onFeedback: (rating: FeedbackRating, comment?: string, categories?: string[]) => void;
 }
 
+type ParsedTable = {
+  title?: string;
+  headers: string[];
+  rows: string[][];
+};
+
+function parseAssistantTable(content: string): ParsedTable | null {
+  const raw = content?.trim();
+  if (!raw) return null;
+
+  const lines = raw.split("\n").map((l) => l.trim()).filter(Boolean);
+
+  // ASCII table format from backend renderer
+  const firstPipe = lines.findIndex((l) => l.startsWith("|"));
+  if (firstPipe !== -1) {
+    const titleLine = lines.find((l) => l.toLowerCase().startsWith("table "));
+    const tableLines = lines.filter((l) => l.startsWith("|"));
+    if (tableLines.length >= 2) {
+      const toCells = (line: string) =>
+        line
+          .split("|")
+          .map((c) => c.trim())
+          .filter(Boolean);
+
+      const headers = toCells(tableLines[0]);
+      const rows = tableLines.slice(1).map(toCells).filter((r) => r.length === headers.length);
+      if (headers.length >= 2 && rows.length >= 1) {
+        return { title: titleLine, headers, rows };
+      }
+    }
+  }
+
+  // Legacy key=value | key=value single-line format
+  if (raw.includes("|") && (raw.includes("=") || raw.includes(":"))) {
+    const tokens = raw.split("|").map((t) => t.replace(/^[-*\s]+/, "").trim()).filter(Boolean);
+    const pairs = tokens
+      .map((token) => {
+        const m = token.match(/^([a-zA-Z0-9_]+)\s*[:=]\s*(.*)$/);
+        if (!m) return null;
+        return {
+          key: m[1].replace(/_/g, " "),
+          value: m[2] || "-",
+        };
+      })
+      .filter((p): p is { key: string; value: string } => !!p);
+
+    if (pairs.length >= 3) {
+      return {
+        title: "Resultat",
+        headers: pairs.map((p) => p.key),
+        rows: [pairs.map((p) => p.value)],
+      };
+    }
+  }
+
+  return null;
+}
+
 function MessageBubble({ message, isAdmin, onFeedback }: BubbleProps) {
   const isUser = message.role === "user";
   const isAsciiTable = !isUser && message.content.includes("Table ") && message.content.includes("+-") && message.content.includes("| ");
+  const parsedTable = !isUser ? parseAssistantTable(message.content) : null;
   const [showComment, setShowComment]   = useState(false);
   const [comment, setComment]           = useState("");
   const [selectedCats, setSelectedCats] = useState<string[]>([]);
@@ -329,7 +388,31 @@ function MessageBubble({ message, isAdmin, onFeedback }: BubbleProps) {
               ))}
             </span>
           ) : (
-            isAsciiTable ? (
+            parsedTable ? (
+              <div className="space-y-1.5">
+                {parsedTable.title && <p className="text-xs opacity-80">{parsedTable.title}</p>}
+                <div className="overflow-x-auto rounded-lg border border-border/50 bg-background/30">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/40">
+                      <tr>
+                        {parsedTable.headers.map((h) => (
+                          <th key={h} className="px-2 py-1.5 text-left font-medium whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {parsedTable.rows.map((row, ri) => (
+                        <tr key={ri} className="border-t border-border/40">
+                          {row.map((cell, ci) => (
+                            <td key={`${ri}-${ci}`} className="px-2 py-1.5 align-top whitespace-nowrap">{cell}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : isAsciiTable ? (
               <pre className="whitespace-pre overflow-x-auto text-xs leading-relaxed font-mono">{message.content}</pre>
             ) : (
               <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
