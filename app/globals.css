@@ -217,3 +217,52 @@
     @apply bg-background text-foreground;
   }
 }
+
+@keyframes doc-float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+@keyframes doc-reveal {
+  0% {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes doc-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+.animate-doc-float {
+  animation: doc-float 8s ease-in-out infinite;
+}
+
+.animate-doc-reveal {
+  animation: doc-reveal 500ms ease-out both;
+}
+
+.doc-skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--color-muted) 80%, transparent) 20%,
+    color-mix(in oklab, var(--color-background) 88%, var(--color-primary) 12%) 50%,
+    color-mix(in oklab, var(--color-muted) 80%, transparent) 80%
+  );
+  background-size: 200% 100%;
+  animation: doc-shimmer 1.6s linear infinite;
+}

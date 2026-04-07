@@ -373,6 +373,58 @@ export interface SupportContent {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// Documentation content (public + admin editable)
+// ────────────────────────────────────────────────────────────────────────────
+
+export interface DocumentationHero {
+  title: string;
+  subtitle: string;
+}
+
+export interface DocumentationOverviewModule {
+  title: string;
+  points: string[];
+}
+
+export interface DocumentationOverview {
+  title: string;
+  intro: string;
+  modules: DocumentationOverviewModule[];
+}
+
+export interface DocumentationDevCard {
+  title: string;
+  description: string;
+}
+
+export interface DocumentationDev {
+  title: string;
+  intro: string;
+  cards: DocumentationDevCard[];
+  integration_steps: string[];
+  payload_example: string;
+}
+
+export interface DocumentationQaArea {
+  area: string;
+  checks: string;
+}
+
+export interface DocumentationQa {
+  title: string;
+  intro: string;
+  strategy: string[];
+  area_checks: DocumentationQaArea[];
+}
+
+export interface DocumentationContent {
+  hero: DocumentationHero;
+  overview: DocumentationOverview;
+  dev: DocumentationDev;
+  qa: DocumentationQa;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // Service utility
 // ────────────────────────────────────────────────────────────────────────────
 
