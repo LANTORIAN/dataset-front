@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import {
   User, Palette, Sun, Moon, Monitor, Save, KeyRound, Eye, EyeOff, Shield,
-  Mail, Send, Database,
+  Mail, Send,
 } from "lucide-react";
 import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
@@ -24,6 +24,7 @@ import {
   type SmtpSettings,
   type DbAssistantVisibilitySettings,
 } from "@/services/admin-settings.service";
+import { MindLogo } from "@/components/branding/mind-logo";
 
 const THEME_OPTIONS = [
   { value: "light",  label: "Clair",   icon: Sun },
@@ -408,7 +409,7 @@ export function SettingsPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
-              <Database className="size-4 text-muted-foreground" />
+              <MindLogo className="size-4 text-muted-foreground" />
               <CardTitle className="text-base">Visibilité base de données (Assistant)</CardTitle>
             </div>
             <CardDescription>

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Eye, EyeOff, Loader2, Database, Clock } from "lucide-react";
+import { Eye, EyeOff, Loader2, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,7 @@ import {
   Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle,
 } from "@/components/ui/card";
 import { useAuth } from "@/lib/context/auth-context";
+import { MindLogo } from "@/components/branding/mind-logo";
 
 export default function SignupPage() {
   const { signup } = useAuth();
@@ -72,7 +73,7 @@ export default function SignupPage() {
       <CardHeader className="space-y-1 text-center">
         <div className="flex justify-center mb-2">
           <div className="rounded-xl bg-primary/10 p-3">
-            <Database className="size-6 text-primary" />
+            <MindLogo className="size-6 text-primary" />
           </div>
         </div>
         <CardTitle className="text-xl">Créer un compte</CardTitle>

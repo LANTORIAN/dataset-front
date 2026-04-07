@@ -7,7 +7,6 @@ import {
   FolderOpen,
   MessageSquare,
   Settings,
-  Database,
   Shield,
   X,
   BarChart2,
@@ -19,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/context/auth-context";
+import { MindLogo } from "@/components/branding/mind-logo";
 
 const BASE_NAV = [
   {
@@ -119,7 +119,7 @@ export function Sidebar({ isOpen, onClose, isMobile }: SidebarProps) {
           {/* Header */}
           <div className="flex h-14 items-center justify-between border-b border-sidebar-border px-4">
             <Link href="/" className="flex items-center gap-2">
-              <Database className="size-6 text-sidebar-primary" />
+              <MindLogo className="size-6 text-sidebar-primary" />
               <span className="font-semibold text-sm tracking-tight">
                 DatasetAI
               </span>

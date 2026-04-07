@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  Send, Bot, User, Loader2, MessageSquare, Zap, Database,
+  Send, Bot, User, Loader2, MessageSquare, Zap,
   ThumbsUp, ThumbsDown, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import type { FeedbackRating } from "@/services/feedback.service";
 import { toast } from "sonner";
 import type { Project, ConversationMessage } from "@/types";
 import { useAuth } from "@/lib/context/auth-context";
+import { MindLogo } from "@/components/branding/mind-logo";
 
 // ── UI message ─────────────────────────────────────────────────────────────
 
@@ -196,7 +197,7 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
   if (!project) {
     return (
       <div className="flex flex-col items-center justify-center flex-1 gap-3 text-muted-foreground p-8">
-        <Database className="size-12" />
+        <MindLogo className="size-12" />
         <p className="font-medium">Sélectionnez un projet</p>
         <p className="text-sm text-center">
           Choisissez un projet dans le panneau gauche pour démarrer une conversation.
@@ -439,7 +440,7 @@ function MessageBubble({ message, isAdmin, onFeedback }: BubbleProps) {
           <div className="flex flex-wrap items-center gap-1 px-1">
             {isAdmin && message.source_type && (
               <Badge variant="outline" className="text-xs h-4 gap-1">
-                <Database className="size-2.5" />{message.source_type}
+                <MindLogo className="size-3" />{message.source_type}
               </Badge>
             )}
             {isAdmin && message.cached && (
