@@ -62,7 +62,9 @@ export interface Project {
   name: string;
   slug: string;
   description: string | null;
-  api_key: string;
+  api_key: string | null;
+  agent_token?: string | null;
+  agent_token_masked?: string | null;
   api_key_masked: string;
   is_active: boolean;
   owner_id: string;

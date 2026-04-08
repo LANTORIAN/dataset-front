@@ -64,11 +64,16 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="relative flex h-screen overflow-hidden bg-background">
+      <div className="pointer-events-none absolute inset-0 opacity-70 [background:radial-gradient(1200px_520px_at_15%_-10%,color-mix(in_oklab,var(--color-primary)_14%,transparent),transparent_70%),radial-gradient(900px_460px_at_92%_0%,color-mix(in_oklab,var(--color-accent)_16%,transparent),transparent_72%)]" />
       <Sidebar isOpen={isOpen} onClose={() => setIsOpen(false)} isMobile={isMobile} />
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
         <Header onToggleSidebar={() => setIsOpen((v) => !v)} title={title} />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto px-3 pb-6 pt-4 md:px-6 md:pt-6">
+          <div className="mx-auto w-full max-w-7xl">
+            {children}
+          </div>
+        </main>
       </div>
     </div>
   );

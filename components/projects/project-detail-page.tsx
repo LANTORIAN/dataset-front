@@ -125,9 +125,9 @@ export function ProjectDetailPage({ projectId }: Props) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col items-center gap-4 text-center md:flex-row md:justify-between md:text-left">
         <div className="flex items-center gap-3">
           <Button asChild variant="ghost" size="icon" className="size-8">
             <Link href="/projects"><ArrowLeft className="size-4" /></Link>
@@ -147,7 +147,7 @@ export function ProjectDetailPage({ projectId }: Props) {
       </div>
 
       <Tabs defaultValue="files">
-        <TabsList>
+        <TabsList className="mx-auto grid w-full max-w-3xl grid-cols-2 md:grid-cols-4">
           <TabsTrigger value="files">Fichiers</TabsTrigger>
           <TabsTrigger value="sources">Sources externes</TabsTrigger>
           <TabsTrigger value="database">Base de donnees</TabsTrigger>
@@ -172,7 +172,7 @@ export function ProjectDetailPage({ projectId }: Props) {
         <TabsContent value="files" className="mt-4">
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card>
           <CardHeader className="pb-1">
             <CardDescription className="text-xs">Total fichiers</CardDescription>

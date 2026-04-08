@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import {
   Plus, ChevronDown, ChevronUp, Copy, Check,
-  KeyRound, AlertTriangle,
+  KeyRound, AlertTriangle, Server,
 } from "lucide-react";
 import { projectsService } from "@/services/projects.service";
 import { cn } from "@/lib/utils";
@@ -55,7 +55,7 @@ export function CreateProjectDialog({ onCreated }: Props) {
 
   // Étape 2 : clé API affichée une seule fois
   const [createdProject, setCreatedProject] = useState<Project | null>(null);
-  const [copied, setCopied]                 = useState(false);
+  const [copiedField, setCopiedField]       = useState<string | null>(null);
 
   const set = (field: keyof FormState) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -81,11 +81,11 @@ export function CreateProjectDialog({ onCreated }: Props) {
     }
   };
 
-  const copyKey = async () => {
-    if (!createdProject?.api_key) return;
-    await navigator.clipboard.writeText(createdProject.api_key);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const copyValue = async (field: string, value?: string | null) => {
+    if (!value) return;
+    await navigator.clipboard.writeText(value);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
   };
 
   const handleClose = (v: boolean) => {
@@ -93,12 +93,16 @@ export function CreateProjectDialog({ onCreated }: Props) {
       setOpen(false);
       setForm(DEFAULTS);
       setCreatedProject(null);
-      setCopied(false);
+      setCopiedField(null);
       setShowAdvanced(false);
     } else {
       setOpen(true);
     }
   };
+
+  const composeSnippet = createdProject
+    ? `services:\n  local-agent:\n    image: bluevaloris/local-agent:latest\n    restart: unless-stopped\n    environment:\n      PROJECT_ID: "${createdProject.id}"\n      AGENT_TOKEN: "${createdProject.agent_token ?? "<REQUIRED>"}"\n      BACKEND_URL: "https://api-mind.bluevaloris.com"\n      DB_TYPE: "postgres"\n      DB_HOST: "postgres"\n      DB_PORT: "5432"\n      DB_NAME: "your_database"\n      DB_USER: "readonly_user"\n      DB_PASSWORD: "<SECRET>"\n      DB_SSLMODE: "require"`
+    : "";
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -109,7 +113,7 @@ export function CreateProjectDialog({ onCreated }: Props) {
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         {/* ── Étape 2 : clé révélée ── */}
         {createdProject ? (
           <>
@@ -128,8 +132,8 @@ export function CreateProjectDialog({ onCreated }: Props) {
               <div className="flex items-start gap-2 rounded-lg border border-warning-surface-border bg-warning-surface p-3">
                 <AlertTriangle className="size-4 text-warning-foreground shrink-0 mt-0.5" />
                 <p className="text-xs text-warning-surface-foreground leading-relaxed">
-                  Stockez cette clé dans un gestionnaire de secrets ou une variable d&apos;environnement.
-                  Elle permet d&apos;accéder au chat, aux fichiers et aux conversations de ce projet.
+                  Stockez ces secrets dans un gestionnaire de secrets ou des variables d&apos;environnement.
+                  Chaque projet possede son propre `project_id`, sa cle API et son token agent.
                 </p>
               </div>
 
@@ -144,23 +148,82 @@ export function CreateProjectDialog({ onCreated }: Props) {
 
               <Separator />
 
-              {/* API Key */}
-              <div className="space-y-1.5">
-                <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                  Clé API
-                </Label>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="space-y-1.5 sm:col-span-3">
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">Project ID</Label>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 rounded-md border border-border bg-muted px-3 py-2 text-xs font-mono break-all leading-relaxed">
+                      {createdProject.id}
+                    </code>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className={cn("size-9 shrink-0", copiedField === "project_id" && "border-success text-success")}
+                      onClick={() => copyValue("project_id", createdProject.id)}
+                    >
+                      {copiedField === "project_id" ? <Check className="size-4" /> : <Copy className="size-4" />}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5 sm:col-span-3">
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">Cle API publique projet</Label>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 rounded-md border border-border bg-muted px-3 py-2 text-xs font-mono break-all leading-relaxed">
+                      {createdProject.api_key ?? "—"}
+                    </code>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className={cn("size-9 shrink-0", copiedField === "api_key" && "border-success text-success")}
+                      onClick={() => copyValue("api_key", createdProject.api_key)}
+                      disabled={!createdProject.api_key}
+                    >
+                      {copiedField === "api_key" ? <Check className="size-4" /> : <Copy className="size-4" />}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5 sm:col-span-3">
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">Token agent local</Label>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 rounded-md border border-border bg-muted px-3 py-2 text-xs font-mono break-all leading-relaxed">
+                      {createdProject.agent_token ?? "—"}
+                    </code>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className={cn("size-9 shrink-0", copiedField === "agent_token" && "border-success text-success")}
+                      onClick={() => copyValue("agent_token", createdProject.agent_token)}
+                      disabled={!createdProject.agent_token}
+                    >
+                      {copiedField === "agent_token" ? <Check className="size-4" /> : <Copy className="size-4" />}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-2">
                 <div className="flex items-center gap-2">
-                  <code className="flex-1 rounded-md border border-border bg-muted px-3 py-2 text-xs font-mono break-all leading-relaxed">
-                    {createdProject.api_key ?? "—"}
-                  </code>
+                  <Server className="size-4 text-primary" />
+                  <p className="text-xs font-medium">Boilerplate Docker local-agent</p>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Copiez ce bloc dans le `docker-compose.yml` du client pour connecter sa base interne.
+                </p>
+                <pre className="rounded-md border bg-background p-3 text-[11px] overflow-auto">
+                  {composeSnippet}
+                </pre>
+                <div className="flex justify-end">
                   <Button
                     variant="outline"
-                    size="icon"
-                    className={cn("size-9 shrink-0", copied && "border-success text-success")}
-                    onClick={copyKey}
-                    disabled={!createdProject.api_key}
+                    size="sm"
+                    className={cn("gap-2", copiedField === "compose" && "border-success text-success")}
+                    onClick={() => copyValue("compose", composeSnippet)}
+                    disabled={!composeSnippet}
                   >
-                    {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+                    {copiedField === "compose" ? <Check className="size-4" /> : <Copy className="size-4" />}
+                    Copier le boilerplate
                   </Button>
                 </div>
               </div>
@@ -187,7 +250,7 @@ export function CreateProjectDialog({ onCreated }: Props) {
 
             <DialogFooter>
               <Button onClick={() => handleClose(false)} className="w-full">
-                J&apos;ai copié ma clé — Fermer
+                J&apos;ai copie les secrets — Fermer
               </Button>
             </DialogFooter>
           </>

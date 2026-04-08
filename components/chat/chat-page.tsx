@@ -84,14 +84,14 @@ export function ChatPage() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem-3rem)] gap-0 -mt-6 -mx-6 overflow-hidden">
+    <div className="mx-auto flex h-[calc(100vh-8.5rem)] w-full max-w-7xl overflow-hidden rounded-2xl border border-border/70 bg-card/80 shadow-[0_14px_40px_rgba(2,12,27,0.08)]">
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex w-64 flex-col border-r border-border bg-background shrink-0">
+      <aside className="hidden md:flex w-72 flex-col border-r border-border/70 bg-background/70 shrink-0">
         <ConversationsSidebar {...sidebarProps} />
       </aside>
 
       {/* Mobile drawer */}
-      <div className="md:hidden absolute top-16 left-4 z-10">
+      <div className="md:hidden absolute top-24 left-5 z-10">
         <Sheet>
           <SheetTrigger asChild>
             <Button variant="outline" size="icon" className="size-8">
@@ -105,7 +105,7 @@ export function ChatPage() {
       </div>
 
       {/* Chat area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden bg-background/55">
         <ChatInterface
           project={selectedProject}
           apiKey={resolvedApiKey}

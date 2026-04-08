@@ -36,22 +36,23 @@ export function Header({ onToggleSidebar, title }: HeaderProps) {
     .slice(0, 2);
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center border-b border-border bg-background/95 backdrop-blur px-4 gap-4">
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={onToggleSidebar}
-        className="size-8"
-        aria-label="Toggle sidebar"
-      >
-        <Menu className="size-4" />
-      </Button>
+    <header className="sticky top-0 z-30 border-b border-border/70 bg-background/85 backdrop-blur-xl">
+      <div className="mx-auto flex h-14 w-full max-w-7xl items-center gap-4 px-3 md:px-6">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onToggleSidebar}
+          className="size-8"
+          aria-label="Toggle sidebar"
+        >
+          <Menu className="size-4" />
+        </Button>
 
-      {title && (
-        <h1 className="text-sm font-semibold text-foreground truncate">{title}</h1>
-      )}
+        {title && (
+          <h1 className="text-sm font-semibold text-foreground truncate">{title}</h1>
+        )}
 
-      <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex items-center gap-1">
         {/* Theme toggle */}
         <Button
           variant="ghost"
@@ -111,6 +112,7 @@ export function Header({ onToggleSidebar, title }: HeaderProps) {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </div>
     </header>
   );

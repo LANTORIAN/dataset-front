@@ -93,10 +93,10 @@ export function ProjectsPage() {
   const toggleOrder = () => setOrder((o) => o === "asc" ? "desc" : "asc");
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col items-center gap-4 text-center md:flex-row md:justify-between md:text-left">
+        <div className="space-y-1">
           <h2 className="text-2xl font-bold tracking-tight">Projets</h2>
           <p className="text-muted-foreground text-sm mt-1">
             {total > 0 ? `${total} projet${total > 1 ? "s" : ""}` : "Gérez vos datasets et leurs fichiers."}
@@ -106,6 +106,8 @@ export function ProjectsPage() {
       </div>
 
       {/* Toolbar */}
+      <Card className="mx-auto w-full max-w-5xl">
+      <CardContent className="pt-6">
       <div className="flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground pointer-events-none" />
@@ -145,10 +147,12 @@ export function ProjectsPage() {
             : <SortDesc className="size-4" />}
         </Button>
       </div>
+      </CardContent>
+      </Card>
 
       {/* Grid */}
       {loading ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <Card key={i} className="animate-pulse">
               <CardHeader>
@@ -175,9 +179,9 @@ export function ProjectsPage() {
           )}
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           {visibleProjects.map((project) => (
-            <Card key={project.id} className="hover:shadow-md transition-shadow group">
+            <Card key={project.id} className="group transition-all hover:-translate-y-0.5 hover:shadow-lg">
               <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <FolderOpen className="size-4 text-primary shrink-0" />

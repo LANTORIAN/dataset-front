@@ -215,6 +215,10 @@
   }
   body {
     @apply bg-background text-foreground;
+    background-image:
+      radial-gradient(1200px 520px at 8% -8%, color-mix(in oklab, var(--color-primary) 10%, transparent), transparent 68%),
+      radial-gradient(960px 460px at 96% -14%, color-mix(in oklab, var(--color-accent) 12%, transparent), transparent 70%);
+    background-attachment: fixed;
   }
 }
 
