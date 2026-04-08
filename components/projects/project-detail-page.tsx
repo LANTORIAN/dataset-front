@@ -26,6 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UploadFileDialog } from "./upload-file-dialog";
 import { ProjectConfigForm } from "./project-config-form";
 import { KnowledgeSourcesTab } from "./knowledge-sources-tab";
+import { ProjectDatabaseTab } from "./project-database-tab";
 import { projectsService } from "@/services/projects.service";
 import { ragFilesService } from "@/services/rag-files.service";
 import { useDebounce } from "@/lib/hooks/use-debounce";
@@ -149,6 +150,7 @@ export function ProjectDetailPage({ projectId }: Props) {
         <TabsList>
           <TabsTrigger value="files">Fichiers</TabsTrigger>
           <TabsTrigger value="sources">Sources externes</TabsTrigger>
+          <TabsTrigger value="database">Base de donnees</TabsTrigger>
           <TabsTrigger value="config">Configuration</TabsTrigger>
         </TabsList>
 
@@ -161,6 +163,10 @@ export function ProjectDetailPage({ projectId }: Props) {
 
         <TabsContent value="sources" className="mt-4">
           <KnowledgeSourcesTab projectId={projectId} apiKey={apiKey} />
+        </TabsContent>
+
+        <TabsContent value="database" className="mt-4">
+          <ProjectDatabaseTab projectId={projectId} />
         </TabsContent>
 
         <TabsContent value="files" className="mt-4">

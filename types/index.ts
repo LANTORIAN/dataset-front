@@ -270,6 +270,67 @@ export interface TopQuestion {
   last_asked?: string;
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// Project External Database Config
+// ────────────────────────────────────────────────────────────────────────────
+
+export type ProjectDatabaseType = "postgres";
+export type ProjectDatabaseSslMode =
+  | "disable"
+  | "allow"
+  | "prefer"
+  | "require"
+  | "verify-ca"
+  | "verify-full";
+
+export interface ProjectDatabaseConfig {
+  project_id: string;
+  db_type: ProjectDatabaseType;
+  host: string;
+  port: number;
+  db_name: string;
+  db_user: string;
+  ssl_mode: ProjectDatabaseSslMode;
+  is_enabled: boolean;
+  consent_share_data: boolean;
+  consent_at: string | null;
+  consent_version: string | null;
+  include_tables: string[];
+  exclude_tables: string[];
+  connect_timeout_seconds: number;
+  statement_timeout_ms: number;
+  max_rows: number;
+  last_tested_at: string | null;
+  last_test_success: boolean | null;
+  last_test_error: string | null;
+  has_password: boolean;
+}
+
+export interface UpsertProjectDatabaseConfigPayload {
+  db_type: ProjectDatabaseType;
+  host: string;
+  port: number;
+  db_name: string;
+  db_user: string;
+  db_password?: string;
+  ssl_mode: ProjectDatabaseSslMode;
+  is_enabled: boolean;
+  consent_share_data: boolean;
+  consent_version: string;
+  include_tables: string[];
+  exclude_tables: string[];
+  connect_timeout_seconds: number;
+  statement_timeout_ms: number;
+  max_rows: number;
+}
+
+export interface ProjectDatabaseTestResult {
+  success: boolean;
+  database: string;
+  user: string;
+  tables_preview: string[];
+}
+
 export interface FailedQuery {
   query: string;
   error_type: string;
