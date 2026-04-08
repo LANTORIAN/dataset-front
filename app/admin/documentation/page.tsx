@@ -1,14 +1,18 @@
 import { DashboardLayout } from "@/components/layouts/dashboard-layout";
 import { DocumentationAdminPage } from "@/components/admin/documentation-admin-page";
 import { DEFAULT_DOCUMENTATION_CONTENT, normalizeDocumentationContent } from "@/lib/documentation/default-content";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8087/api/v1";
+import { headers } from "next/headers";
 
 export default async function AdminDocumentation() {
   let initialContent = DEFAULT_DOCUMENTATION_CONTENT;
 
   try {
-    const res = await fetch(`${API_BASE}/support/content/documentation`, {
+    const h = await headers();
+    const host = h.get("x-forwarded-host") ?? h.get("host");
+    const proto = h.get("x-forwarded-proto") ?? "http";
+    const origin = host ? `${proto}://${host}` : "http://localhost:3000";
+
+    const res = await fetch(`${origin}/api/documentation/content`, {
       next: { revalidate: 0 },
     });
     if (res.ok) {

@@ -1,8 +1,7 @@
 import dynamic from "next/dynamic";
+import { headers } from "next/headers";
 import { DEFAULT_DOCUMENTATION_CONTENT, normalizeDocumentationContent } from "@/lib/documentation/default-content";
 import type { DocumentationContent } from "@/types";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8087/api/v1";
 
 const DocumentationPage = dynamic<{ content: DocumentationContent }>(
   () =>
@@ -22,7 +21,12 @@ async function DocumentationContentLoader() {
   let content = DEFAULT_DOCUMENTATION_CONTENT;
 
   try {
-    const res = await fetch(`${API_BASE}/support/content/documentation`, {
+    const h = await headers();
+    const host = h.get("x-forwarded-host") ?? h.get("host");
+    const proto = h.get("x-forwarded-proto") ?? "http";
+    const origin = host ? `${proto}://${host}` : "http://localhost:3000";
+
+    const res = await fetch(`${origin}/api/documentation/content`, {
       next: { revalidate: 60 },
     });
     if (res.ok) {

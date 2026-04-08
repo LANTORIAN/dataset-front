@@ -1,43 +1,51 @@
-import { bearerGet, bearerPut, publicGet } from "@/lib/api/client";
+import { tokenStore } from "@/lib/api/client";
 import { withService } from "@/lib/api/result";
 import { normalizeDocumentationContent } from "@/lib/documentation/default-content";
 import type { DocumentationContent } from "@/types";
 
-interface SupportSectionResponse {
-  section: string;
-  content: unknown;
-  updated_at: string;
+interface DocumentationProxyResponse {
+  section?: string;
+  content?: unknown;
+  updated_at?: string;
+  detail?: string;
 }
 
-const SECTION = "documentation";
+async function fetchDocumentationProxy(init?: RequestInit) {
+  const res = await fetch("/api/documentation/content", init);
+  const json = (await res.json().catch(() => null)) as DocumentationProxyResponse | null;
+  if (!res.ok) throw new Error(json?.detail || "Erreur API documentation");
+  return json;
+}
 
 export const documentationContentService = {
   getPublic() {
     return withService(
-      () =>
-        publicGet<SupportSectionResponse>(`/support/content/${SECTION}`).then((r) =>
-          normalizeDocumentationContent(r.content)
-        ),
+      async () => {
+        const r = await fetchDocumentationProxy({ method: "GET" });
+        return normalizeDocumentationContent(r?.content ?? r);
+      },
       { showErrorToast: false }
     );
   },
 
   getAdmin() {
-    return withService(
-      () =>
-        bearerGet<SupportSectionResponse>(`/support/content/${SECTION}`).then((r) =>
-          normalizeDocumentationContent(r.content)
-        ),
-      { showErrorToast: true, errorMessage: "Impossible de charger le contenu de la documentation" }
-    );
+    return this.getPublic();
   },
 
   update(payload: DocumentationContent) {
     return withService(
-      () =>
-        bearerPut<SupportSectionResponse>(`/admin/support/content/${SECTION}`, {
-          content: payload,
-        }).then((r) => normalizeDocumentationContent(r.content)),
+      async () => {
+        const token = tokenStore.get();
+        const r = await fetchDocumentationProxy({
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify(payload),
+        });
+        return normalizeDocumentationContent(r?.content ?? r);
+      },
       { successMessage: "Documentation mise a jour" }
     );
   },

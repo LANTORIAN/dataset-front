@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getBackendApiUrl } from "@/lib/server/backend-url";
 
-const BACKEND = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8087/api/v1";
+const BACKEND = getBackendApiUrl();
 const COOKIE_NAME = "refresh_token";
 
 export async function POST(req: NextRequest) {

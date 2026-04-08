@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { useRef } from "react";
 import { Sparkles, ArrowUpRight, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,15 @@ interface DocumentationPageProps {
 }
 
 export function DocumentationPage({ content }: DocumentationPageProps) {
+  const overviewRef = useRef<HTMLElement | null>(null);
+  const devRef = useRef<HTMLElement | null>(null);
+  const qaRef = useRef<HTMLElement | null>(null);
+
+  const scrollToSection = (el: HTMLElement | null) => {
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-background">
       <div className="pointer-events-none absolute inset-0 -z-10">
@@ -42,30 +52,30 @@ export function DocumentationPage({ content }: DocumentationPageProps) {
         />
       </div>
 
-      <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <section className="animate-doc-reveal rounded-3xl border border-border/70 bg-card/75 p-6 shadow-xl backdrop-blur sm:p-8">
-          <div className="flex flex-wrap items-center gap-3">
-            <Badge className="gap-1.5"><Sparkles className="size-3.5" />Documentation officielle</Badge>
-            <Badge variant="secondary">Lecture seule</Badge>
-            <Badge variant="outline" className="gap-1.5"><ShieldCheck className="size-3.5" />Alignee sur l&apos;app</Badge>
+      <div className="mx-auto w-full max-w-7xl px-3 py-5 sm:px-6 sm:py-8 lg:px-8">
+        <section className="animate-doc-reveal rounded-2xl border border-border/70 bg-card/75 p-4 shadow-xl backdrop-blur sm:rounded-3xl sm:p-8">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <Badge className="gap-1.5 text-xs"><Sparkles className="size-3.5" />Documentation officielle</Badge>
+            <Badge variant="secondary" className="text-xs">Lecture seule</Badge>
+            <Badge variant="outline" className="gap-1.5 text-xs"><ShieldCheck className="size-3.5" />Alignee sur l&apos;app</Badge>
           </div>
-          <h1 className="mt-5 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+          <h1 className="mt-4 text-2xl font-semibold leading-tight tracking-tight text-foreground sm:mt-5 sm:text-4xl">
             {content.hero.title}
           </h1>
-          <p className="mt-4 max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground sm:mt-4 sm:text-base">
             {content.hero.subtitle}
           </p>
-          <div className="mt-6 flex flex-wrap gap-2">
-            <Button asChild size="sm" className="gap-2">
-              <a href="#vue-globale">Vue globale</a>
+          <div className="mt-5 grid grid-cols-2 gap-2 sm:mt-6 sm:flex sm:flex-wrap">
+            <Button size="sm" className="w-full justify-center gap-2 sm:w-auto" onClick={() => scrollToSection(overviewRef.current)}>
+              Vue globale
             </Button>
-            <Button asChild size="sm" variant="outline" className="gap-2">
-              <a href="#dev">Espace dev</a>
+            <Button size="sm" variant="outline" className="w-full justify-center gap-2 sm:w-auto" onClick={() => scrollToSection(devRef.current)}>
+              Espace dev
             </Button>
-            <Button asChild size="sm" variant="outline" className="gap-2">
-              <a href="#qa">Espace QA</a>
+            <Button size="sm" variant="outline" className="w-full justify-center gap-2 sm:w-auto" onClick={() => scrollToSection(qaRef.current)}>
+              Espace QA
             </Button>
-            <Button asChild size="sm" variant="ghost" className="gap-2">
+            <Button asChild size="sm" variant="ghost" className="w-full justify-center gap-2 sm:w-auto">
               <Link href="/projects">
                 Ouvrir l&apos;application
                 <ArrowUpRight className="size-3.5" />
@@ -75,13 +85,13 @@ export function DocumentationPage({ content }: DocumentationPageProps) {
         </section>
 
         <div className="mt-6 grid gap-6">
-          <section id="vue-globale" className="animate-doc-reveal" style={{ animationDelay: "120ms" }}>
+          <section ref={overviewRef} className="animate-doc-reveal" style={{ animationDelay: "120ms" }}>
             <OverviewSection content={content.overview} />
           </section>
-          <section id="dev" className="animate-doc-reveal" style={{ animationDelay: "200ms" }}>
+          <section ref={devRef} className="animate-doc-reveal" style={{ animationDelay: "200ms" }}>
             <DevSection content={content.dev} />
           </section>
-          <section id="qa" className="animate-doc-reveal" style={{ animationDelay: "280ms" }}>
+          <section ref={qaRef} className="animate-doc-reveal" style={{ animationDelay: "280ms" }}>
             <QaSection content={content.qa} />
           </section>
         </div>

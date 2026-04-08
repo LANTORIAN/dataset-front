@@ -110,7 +110,7 @@ export function DocumentationAdminPage({ initialContent }: DocumentationAdminPag
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Contrat backend attendu</CardTitle>
             <CardDescription className="text-xs">
-              Endpoints utilises: <code className="rounded bg-muted px-1">GET /support/content/documentation</code>, <code className="rounded bg-muted px-1">PUT /admin/support/content/documentation</code>.
+              Frontend: <code className="rounded bg-muted px-1">GET/PUT /api/documentation/content</code>. Backend relaye: <code className="rounded bg-muted px-1">/support/content/documentation</code> + <code className="rounded bg-muted px-1">/admin/support/content/documentation</code>.
             </CardDescription>
           </CardHeader>
         </Card>
