@@ -13,6 +13,7 @@ import {
   HelpCircle,
   LifeBuoy,
   BookOpen,
+  KeyRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -31,6 +32,7 @@ const BASE_NAV = [
     section: "DATASETS",
     items: [
       { title: "Projets",          href: "/projects",   icon: FolderOpen  },
+      { title: "Acces & cles", href: "/projects/access", icon: KeyRound },
       { title: "Base de connaissance FAQ", href: "/faq", icon: HelpCircle },
       { title: "Analytics",        href: "/analytics",  icon: BarChart2   },
     ],

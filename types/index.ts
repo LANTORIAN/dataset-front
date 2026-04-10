@@ -84,6 +84,40 @@ export interface ProjectListResponse {
   };
 }
 
+export interface ProjectSetupSummary {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  is_active: boolean;
+  api_key_masked: string;
+  agent_token_masked: string | null;
+  agent_token_active: boolean;
+  agent_token_rotated_at: string | null;
+  has_db_config: boolean;
+  db_enabled: boolean;
+  db_consent: boolean;
+  db_type: string | null;
+  db_host: string | null;
+  db_port: number | null;
+  db_name: string | null;
+  db_ssl_mode: string | null;
+  db_last_tested_at: string | null;
+  db_last_test_success: boolean | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface ProjectSetupListResponse {
+  projects: ProjectSetupSummary[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    pages: number;
+  };
+}
+
 export interface CreateProjectPayload {
   name: string;
   slug?: string;
@@ -110,6 +144,13 @@ export interface RotateKeyResponse {
 export interface RevealKeyResponse {
   project_id: string;
   api_key: string;
+  warning: string;
+}
+
+export interface RevealAgentTokenResponse {
+  project_id: string;
+  agent_token: string;
+  token_prefix: string;
   warning: string;
 }
 

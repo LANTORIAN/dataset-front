@@ -16,6 +16,8 @@ import type {
   AnalyticsOverview,
   AnalyticsTrend,
   TopQuestion,
+  ProjectSetupListResponse,
+  RevealAgentTokenResponse,
 } from "@/types";
 
 export const projectsService = {
@@ -37,6 +39,16 @@ export const projectsService = {
     return withService(
       () => bearerGet<ProjectListResponse>(`/projects?${qs}`),
       { showErrorToast: true, errorMessage: "Impossible de charger les projets" }
+    );
+  },
+
+  listSetupSummaries(params: { page?: number; limit?: number; search?: string } = {}) {
+    const { page = 1, limit = 20, search } = params;
+    const qs = new URLSearchParams({ page: String(page), limit: String(limit) });
+    if (search) qs.set("search", search);
+    return withService(
+      () => bearerGet<ProjectSetupListResponse>(`/projects/setup-summaries?${qs}`),
+      { showErrorToast: true, errorMessage: "Impossible de charger les configurations projets" }
     );
   },
 
@@ -112,6 +124,20 @@ export const projectsService = {
           generated_at: string;
         }>(`/projects/${id}/regenerate-key`),
       { successMessage: "Nouvelle clé API générée — sauvegardez-la immédiatement." }
+    );
+  },
+
+  revealAgentToken(id: string) {
+    return withService(
+      () => bearerPost<RevealAgentTokenResponse>(`/projects/${id}/reveal-agent-token`),
+      { showErrorToast: true }
+    );
+  },
+
+  rotateAgentToken(id: string) {
+    return withService(
+      () => bearerPost<RevealAgentTokenResponse>(`/projects/${id}/rotate-agent-token`),
+      { successMessage: "Token agent regenere — sauvegardez-le immediatement." }
     );
   },
 
