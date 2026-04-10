@@ -15,7 +15,7 @@ let _accessToken: string | null = null;
 
 export const tokenStore = {
   get:        ()           => _accessToken,
-  set:        (t: string)  => { _accessToken = t; },
+  set:        (t: string)  => { _accessToken = t; _authExpiredNotified = false; },
   clear:      ()           => { _accessToken = null; },
   // Stubs — refresh token est dans le cookie HttpOnly, non accessible client
   getRefresh: ()           => null as string | null,
@@ -30,6 +30,17 @@ type AuthMode =
   | { type: "none" };                // public endpoint
 
 let _refreshInFlight: Promise<boolean> | null = null;
+let _authExpiredNotified = false;
+
+export const AUTH_EXPIRED_EVENT = "auth:expired";
+
+function notifyAuthExpired() {
+  if (typeof window === "undefined") return;
+  if (_authExpiredNotified) return;
+  _authExpiredNotified = true;
+  tokenStore.clear();
+  window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT));
+}
 
 async function tryRefreshAccessToken(): Promise<boolean> {
   if (typeof window === "undefined") return false;
@@ -113,7 +124,13 @@ async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<
     if (refreshed) {
       Object.assign(requestHeaders, buildAuthHeaders(auth));
       res = await fetch(`${API_BASE}${path}`, init);
+    } else {
+      notifyAuthExpired();
     }
+  }
+
+  if (!res.ok && auth.type === "bearer" && res.status === 401) {
+    notifyAuthExpired();
   }
 
   if (!res.ok) throw await parseApiError(res);

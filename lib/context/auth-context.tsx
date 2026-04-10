@@ -6,7 +6,7 @@ import {
 import { useRouter } from "next/navigation";
 import { authService } from "@/services/auth.service";
 import { usersService } from "@/services/users.service";
-import { tokenStore } from "@/lib/api/client";
+import { AUTH_EXPIRED_EVENT, tokenStore } from "@/lib/api/client";
 import type { UserResponse } from "@/types";
 
 // ── Context shape ──────────────────────────────────────────────────────────
@@ -62,6 +62,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => { loadUser(); }, [loadUser]);
+
+  useEffect(() => {
+    const onAuthExpired = () => {
+      setUser(null);
+      if (typeof window !== "undefined") {
+        const path = window.location.pathname;
+        if (!path.startsWith("/login")) {
+          router.replace("/login?reason=session_expired");
+        }
+      }
+    };
+
+    window.addEventListener(AUTH_EXPIRED_EVENT, onAuthExpired);
+    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, onAuthExpired);
+  }, [router]);
 
   const login = useCallback(async (username: string, password: string) => {
     const result = await authService.login({ username, password });
