@@ -11,7 +11,7 @@ import type { ProjectSetupSummary } from "@/types";
 import { Check, Copy, Database, Eye, KeyRound, Loader2, MessageSquare, RefreshCw, Search, Settings2 } from "lucide-react";
 
 function buildCompose(project: ProjectSetupSummary, agentToken?: string) {
-  return `services:\n  local-agent:\n    image: bluevaloris/local-agent:latest\n    restart: unless-stopped\n    environment:\n      PROJECT_ID: "${project.id}"\n      AGENT_TOKEN: "${agentToken ?? "<REVEAL_AGENT_TOKEN>"}"\n      BACKEND_URL: "https://api-mind.bluevaloris.com"\n      DB_TYPE: "postgres"\n      DB_HOST: "${project.db_host ?? "postgres"}"\n      DB_PORT: "${project.db_port ?? 5432}"\n      DB_NAME: "${project.db_name ?? "your_database"}"\n      DB_USER: "readonly_user"\n      DB_PASSWORD: "<SECRET>"\n      DB_SSLMODE: "${project.db_ssl_mode ?? "require"}"`;
+  return `services:\n  local-agent:\n    image: bluevaloris/local-agent:0.1.0\n    restart: unless-stopped\n    environment:\n      PROJECT_ID: "${project.id}"\n      AGENT_TOKEN: "${agentToken ?? "<REVEAL_AGENT_TOKEN>"}"\n      BACKEND_URL: "https://api-mind.bluevaloris.com"\n      DB_TYPE: "postgres"\n      DB_HOST: "${project.db_host ?? "postgres"}"\n      DB_PORT: "${project.db_port ?? 5432}"\n      DB_NAME: "${project.db_name ?? "your_database"}"\n      DB_USER: "readonly_user"\n      DB_PASSWORD: "<SECRET>"\n      DB_SSLMODE: "${project.db_ssl_mode ?? "require"}"`;
 }
 
 export function ProjectAccessPage() {
@@ -127,7 +127,7 @@ export function ProjectAccessPage() {
                   <div className="grid gap-3 md:grid-cols-2">
                     <div className="rounded-lg border p-3 space-y-2">
                       <p className="text-xs font-medium flex items-center gap-2"><Database className="size-3.5" />Configuration DB</p>
-                      <p className="text-xs text-muted-foreground">{project.has_db_config ? `${project.db_type ?? "db"}://${project.db_host ?? "-"}:${project.db_port ?? "-"}/${project.db_name ?? "-"}` : "Aucune configuration"}</p>
+                      <p className="text-xs text-muted-foreground">{project.has_db_config ? (project.connection_mode === "local_agent" ? `agent: ${project.agent_base_url ?? "-"}` : `${project.db_type ?? "db"}://${project.db_host ?? "-"}:${project.db_port ?? "-"}/${project.db_name ?? "-"}`) : "Aucune configuration"}</p>
                       <div className="flex gap-2 text-xs">
                         <Badge variant={project.db_enabled ? "default" : "secondary"}>DB {project.db_enabled ? "activee" : "desactivee"}</Badge>
                         <Badge variant={project.db_consent ? "default" : "secondary"}>RGPD {project.db_consent ? "ok" : "non"}</Badge>

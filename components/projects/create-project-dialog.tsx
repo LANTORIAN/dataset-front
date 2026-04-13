@@ -101,7 +101,7 @@ export function CreateProjectDialog({ onCreated }: Props) {
   };
 
   const composeSnippet = createdProject
-    ? `services:\n  local-agent:\n    image: bluevaloris/local-agent:latest\n    restart: unless-stopped\n    environment:\n      PROJECT_ID: "${createdProject.id}"\n      AGENT_TOKEN: "${createdProject.agent_token ?? "<REQUIRED>"}"\n      BACKEND_URL: "https://api-mind.bluevaloris.com"\n      DB_TYPE: "postgres"\n      DB_HOST: "postgres"\n      DB_PORT: "5432"\n      DB_NAME: "your_database"\n      DB_USER: "readonly_user"\n      DB_PASSWORD: "<SECRET>"\n      DB_SSLMODE: "require"`
+    ? `services:\n  local-agent:\n    image: bluevaloris/local-agent:0.1.0\n    restart: unless-stopped\n    environment:\n      PROJECT_ID: "${createdProject.id}"\n      AGENT_TOKEN: "${createdProject.agent_token ?? "<REQUIRED>"}"\n      BACKEND_URL: "https://api-mind.bluevaloris.com"\n      DB_TYPE: "postgres"\n      DB_HOST: "postgres"\n      DB_PORT: "5432"\n      DB_NAME: "your_database"\n      DB_USER: "readonly_user"\n      DB_PASSWORD: "<SECRET>"\n      DB_SSLMODE: "require"`
     : "";
 
   return (

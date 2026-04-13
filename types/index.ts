@@ -95,6 +95,7 @@ export interface ProjectSetupSummary {
   agent_token_active: boolean;
   agent_token_rotated_at: string | null;
   has_db_config: boolean;
+  connection_mode: "direct" | "local_agent" | null;
   db_enabled: boolean;
   db_consent: boolean;
   db_type: string | null;
@@ -102,6 +103,7 @@ export interface ProjectSetupSummary {
   db_port: number | null;
   db_name: string | null;
   db_ssl_mode: string | null;
+  agent_base_url: string | null;
   db_last_tested_at: string | null;
   db_last_test_success: boolean | null;
   created_at: string | null;
@@ -317,7 +319,8 @@ export interface TopQuestion {
 // Project External Database Config
 // ────────────────────────────────────────────────────────────────────────────
 
-export type ProjectDatabaseType = "postgres";
+export type ProjectDatabaseType = "postgres" | "mysql";
+export type ProjectConnectionMode = "direct" | "local_agent" | "ssh_tunnel";
 export type ProjectDatabaseSslMode =
   | "disable"
   | "allow"
@@ -328,12 +331,20 @@ export type ProjectDatabaseSslMode =
 
 export interface ProjectDatabaseConfig {
   project_id: string;
+  connection_mode: ProjectConnectionMode;
   db_type: ProjectDatabaseType;
-  host: string;
-  port: number;
-  db_name: string;
-  db_user: string;
+  host: string | null;
+  port: number | null;
+  db_name: string | null;
+  db_user: string | null;
   ssl_mode: ProjectDatabaseSslMode;
+  agent_base_url: string | null;
+  ssh_host?: string | null;
+  ssh_port?: number | null;
+  ssh_user?: string | null;
+  ssh_auth_method?: "password" | "private_key" | null;
+  ssh_remote_host?: string | null;
+  ssh_remote_port?: number | null;
   is_enabled: boolean;
   consent_share_data: boolean;
   consent_at: string | null;
@@ -347,16 +358,31 @@ export interface ProjectDatabaseConfig {
   last_test_success: boolean | null;
   last_test_error: string | null;
   has_password: boolean;
+  has_agent_token: boolean;
+  has_ssh_password?: boolean;
+  has_ssh_private_key?: boolean;
 }
 
 export interface UpsertProjectDatabaseConfigPayload {
+  connection_mode: ProjectConnectionMode;
   db_type: ProjectDatabaseType;
-  host: string;
-  port: number;
-  db_name: string;
-  db_user: string;
+  host?: string;
+  port?: number;
+  db_name?: string;
+  db_user?: string;
   db_password?: string;
   ssl_mode: ProjectDatabaseSslMode;
+  agent_base_url?: string;
+  agent_token?: string;
+  ssh_host?: string;
+  ssh_port?: number;
+  ssh_user?: string;
+  ssh_auth_method?: "password" | "private_key";
+  ssh_password?: string;
+  ssh_private_key?: string;
+  ssh_private_key_passphrase?: string;
+  ssh_remote_host?: string;
+  ssh_remote_port?: number;
   is_enabled: boolean;
   consent_share_data: boolean;
   consent_version: string;

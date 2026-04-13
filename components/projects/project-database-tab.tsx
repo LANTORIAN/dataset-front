@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   XCircle,
+  Server,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +23,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { projectDatabaseService } from "@/services/project-database.service";
 import type {
   ProjectDatabaseConfig,
+  ProjectConnectionMode,
+  ProjectDatabaseType,
   ProjectDatabaseSslMode,
   ProjectDatabaseTestResult,
   UpsertProjectDatabaseConfigPayload,
@@ -32,13 +35,25 @@ interface Props {
 }
 
 interface FormState {
-  db_type: "postgres";
+  connection_mode: ProjectConnectionMode;
+  db_type: "postgres" | "mysql";
   host: string;
   port: string;
   db_name: string;
   db_user: string;
   db_password: string;
   ssl_mode: ProjectDatabaseSslMode;
+  agent_base_url: string;
+  agent_token: string;
+  ssh_host: string;
+  ssh_port: string;
+  ssh_user: string;
+  ssh_auth_method: "password" | "private_key";
+  ssh_password: string;
+  ssh_private_key: string;
+  ssh_private_key_passphrase: string;
+  ssh_remote_host: string;
+  ssh_remote_port: string;
   is_enabled: boolean;
   consent_share_data: boolean;
   consent_version: string;
@@ -50,6 +65,7 @@ interface FormState {
 }
 
 const DEFAULT_FORM: FormState = {
+  connection_mode: "direct",
   db_type: "postgres",
   host: "",
   port: "5432",
@@ -57,6 +73,17 @@ const DEFAULT_FORM: FormState = {
   db_user: "",
   db_password: "",
   ssl_mode: "require",
+  agent_base_url: "",
+  agent_token: "",
+  ssh_host: "",
+  ssh_port: "22",
+  ssh_user: "",
+  ssh_auth_method: "password",
+  ssh_password: "",
+  ssh_private_key: "",
+  ssh_private_key_passphrase: "",
+  ssh_remote_host: "127.0.0.1",
+  ssh_remote_port: "3306",
   is_enabled: false,
   consent_share_data: false,
   consent_version: "v1",
@@ -69,13 +96,25 @@ const DEFAULT_FORM: FormState = {
 
 function toForm(cfg: ProjectDatabaseConfig): FormState {
   return {
+    connection_mode: cfg.connection_mode ?? "direct",
     db_type: cfg.db_type,
-    host: cfg.host,
-    port: String(cfg.port),
-    db_name: cfg.db_name,
-    db_user: cfg.db_user,
+    host: cfg.host ?? "",
+    port: String(cfg.port ?? 5432),
+    db_name: cfg.db_name ?? "",
+    db_user: cfg.db_user ?? "",
     db_password: "",
     ssl_mode: cfg.ssl_mode,
+    agent_base_url: cfg.agent_base_url ?? "",
+    agent_token: "",
+    ssh_host: cfg.ssh_host ?? "",
+    ssh_port: String(cfg.ssh_port ?? 22),
+    ssh_user: cfg.ssh_user ?? "",
+    ssh_auth_method: (cfg.ssh_auth_method as "password" | "private_key") ?? "password",
+    ssh_password: "",
+    ssh_private_key: "",
+    ssh_private_key_passphrase: "",
+    ssh_remote_host: cfg.ssh_remote_host ?? "127.0.0.1",
+    ssh_remote_port: String(cfg.ssh_remote_port ?? (cfg.db_type === "mysql" ? 3306 : 5432)),
     is_enabled: cfg.is_enabled,
     consent_share_data: cfg.consent_share_data,
     consent_version: cfg.consent_version ?? "v1",
@@ -128,13 +167,25 @@ export function ProjectDatabaseTab({ projectId }: Props) {
   );
 
   const payload: UpsertProjectDatabaseConfigPayload = {
+    connection_mode: form.connection_mode,
     db_type: form.db_type,
-    host: form.host.trim(),
-    port: parseInt(form.port, 10) || 5432,
-    db_name: form.db_name.trim(),
-    db_user: form.db_user.trim(),
-    db_password: form.db_password.trim() || undefined,
+    host: form.connection_mode === "direct" ? form.host.trim() : undefined,
+    port: form.connection_mode === "direct" ? (parseInt(form.port, 10) || 5432) : undefined,
+    db_name: form.connection_mode === "direct" ? form.db_name.trim() : undefined,
+    db_user: form.connection_mode === "direct" ? form.db_user.trim() : undefined,
+    db_password: form.connection_mode === "direct" ? (form.db_password.trim() || undefined) : undefined,
     ssl_mode: form.ssl_mode,
+    agent_base_url: form.connection_mode === "local_agent" ? form.agent_base_url.trim() : undefined,
+    agent_token: form.connection_mode === "local_agent" ? (form.agent_token.trim() || undefined) : undefined,
+    ssh_host: form.connection_mode === "ssh_tunnel" ? form.ssh_host.trim() : undefined,
+    ssh_port: form.connection_mode === "ssh_tunnel" ? (parseInt(form.ssh_port, 10) || 22) : undefined,
+    ssh_user: form.connection_mode === "ssh_tunnel" ? form.ssh_user.trim() : undefined,
+    ssh_auth_method: form.connection_mode === "ssh_tunnel" ? form.ssh_auth_method : undefined,
+    ssh_password: form.connection_mode === "ssh_tunnel" && form.ssh_auth_method === "password" ? (form.ssh_password.trim() || undefined) : undefined,
+    ssh_private_key: form.connection_mode === "ssh_tunnel" && form.ssh_auth_method === "private_key" ? (form.ssh_private_key.trim() || undefined) : undefined,
+    ssh_private_key_passphrase: form.connection_mode === "ssh_tunnel" && form.ssh_auth_method === "private_key" ? (form.ssh_private_key_passphrase.trim() || undefined) : undefined,
+    ssh_remote_host: form.connection_mode === "ssh_tunnel" ? form.ssh_remote_host.trim() : undefined,
+    ssh_remote_port: form.connection_mode === "ssh_tunnel" ? (parseInt(form.ssh_remote_port, 10) || (form.db_type === "mysql" ? 3306 : 5432)) : undefined,
     is_enabled: form.is_enabled,
     consent_share_data: form.consent_share_data,
     consent_version: form.consent_version.trim() || "v1",
@@ -148,14 +199,38 @@ export function ProjectDatabaseTab({ projectId }: Props) {
   const handleSave = async () => {
     setFormError(null);
 
-    if (!payload.host || !payload.db_name || !payload.db_user) {
-      setFormError("Host, nom de base et utilisateur sont obligatoires.");
-      return;
-    }
-
-    if (!existing && !payload.db_password) {
-      setFormError("Le mot de passe est obligatoire pour la premiere configuration.");
-      return;
+    if (payload.connection_mode === "direct") {
+      if (!payload.host || !payload.db_name || !payload.db_user) {
+        setFormError("Host, nom de base et utilisateur sont obligatoires en mode direct.");
+        return;
+      }
+      if (!existing?.has_password && !payload.db_password) {
+        setFormError("Le mot de passe DB est obligatoire pour la premiere configuration directe.");
+        return;
+      }
+    } else if (payload.connection_mode === "local_agent") {
+      if (!payload.agent_base_url) {
+        setFormError("L'URL de l'agent local est obligatoire en mode local-agent.");
+        return;
+      }
+      if (!existing?.has_agent_token && !payload.agent_token) {
+        setFormError("Le token agent est obligatoire pour la premiere configuration local-agent.");
+        return;
+      }
+    } else {
+      if (!payload.ssh_host || !payload.ssh_user || !payload.ssh_remote_port) {
+        setFormError("SSH host, user et remote port sont obligatoires en mode SSH tunnel.");
+        return;
+      }
+      if (form.ssh_auth_method === "password") {
+        if (!existing?.has_ssh_password && !payload.ssh_password) {
+          setFormError("Le mot de passe SSH est obligatoire pour la premiere configuration SSH.");
+          return;
+        }
+      } else if (!existing?.has_ssh_private_key && !payload.ssh_private_key) {
+        setFormError("La cle privee SSH est obligatoire pour la premiere configuration SSH.");
+        return;
+      }
     }
 
     if (!canEnable) {
@@ -230,11 +305,30 @@ export function ProjectDatabaseTab({ projectId }: Props) {
         <CardContent className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-1.5">
+              <Label className="text-xs">Mode de connexion</Label>
+              <Select
+                value={form.connection_mode}
+                onValueChange={(v) =>
+                  setForm((prev) => ({ ...prev, connection_mode: v as ProjectConnectionMode }))
+                }
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="direct">Direct DB</SelectItem>
+                  <SelectItem value="local_agent">Local Agent</SelectItem>
+                  <SelectItem value="ssh_tunnel">SSH Tunnel</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
               <Label className="text-xs">Type</Label>
               <Select
                 value={form.db_type}
                 onValueChange={(v) =>
-                  setForm((prev) => ({ ...prev, db_type: v as "postgres" }))
+                  setForm((prev) => ({ ...prev, db_type: v as ProjectDatabaseType }))
                 }
               >
                 <SelectTrigger className="h-8 text-xs">
@@ -242,86 +336,215 @@ export function ProjectDatabaseTab({ projectId }: Props) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="postgres">PostgreSQL</SelectItem>
+                  <SelectItem value="mysql">MySQL</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs">Host</Label>
-              <Input
-                value={form.host}
-                onChange={(e) => setForm((prev) => ({ ...prev, host: e.target.value }))}
-                className="h-8 text-sm"
-                placeholder="db.client.com"
-              />
-            </div>
+            {form.connection_mode === "direct" ? (
+              <>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Host</Label>
+                  <Input
+                    value={form.host}
+                    onChange={(e) => setForm((prev) => ({ ...prev, host: e.target.value }))}
+                    className="h-8 text-sm"
+                    placeholder="db.client.com"
+                  />
+                </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs">Port</Label>
-              <Input
-                value={form.port}
-                onChange={(e) => setForm((prev) => ({ ...prev, port: e.target.value }))}
-                className="h-8 text-sm"
-                placeholder="5432"
-              />
-            </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Port</Label>
+                  <Input
+                    value={form.port}
+                    onChange={(e) => setForm((prev) => ({ ...prev, port: e.target.value }))}
+                    className="h-8 text-sm"
+                    placeholder="5432"
+                  />
+                </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs">Nom de base</Label>
-              <Input
-                value={form.db_name}
-                onChange={(e) => setForm((prev) => ({ ...prev, db_name: e.target.value }))}
-                className="h-8 text-sm"
-                placeholder="business_db"
-              />
-            </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Nom de base</Label>
+                  <Input
+                    value={form.db_name}
+                    onChange={(e) => setForm((prev) => ({ ...prev, db_name: e.target.value }))}
+                    className="h-8 text-sm"
+                    placeholder="business_db"
+                  />
+                </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs">Utilisateur DB</Label>
-              <Input
-                value={form.db_user}
-                onChange={(e) => setForm((prev) => ({ ...prev, db_user: e.target.value }))}
-                className="h-8 text-sm"
-                placeholder="readonly_user"
-              />
-            </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Utilisateur DB</Label>
+                  <Input
+                    value={form.db_user}
+                    onChange={(e) => setForm((prev) => ({ ...prev, db_user: e.target.value }))}
+                    className="h-8 text-sm"
+                    placeholder="readonly_user"
+                  />
+                </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs">SSL mode</Label>
-              <Select
-                value={form.ssl_mode}
-                onValueChange={(v) =>
-                  setForm((prev) => ({ ...prev, ssl_mode: v as ProjectDatabaseSslMode }))
-                }
-              >
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="disable">disable</SelectItem>
-                  <SelectItem value="allow">allow</SelectItem>
-                  <SelectItem value="prefer">prefer</SelectItem>
-                  <SelectItem value="require">require</SelectItem>
-                  <SelectItem value="verify-ca">verify-ca</SelectItem>
-                  <SelectItem value="verify-full">verify-full</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">SSL mode</Label>
+                  <Select
+                    value={form.ssl_mode}
+                    onValueChange={(v) =>
+                      setForm((prev) => ({ ...prev, ssl_mode: v as ProjectDatabaseSslMode }))
+                    }
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="disable">disable</SelectItem>
+                      <SelectItem value="allow">allow</SelectItem>
+                      <SelectItem value="prefer">prefer</SelectItem>
+                      <SelectItem value="require">require</SelectItem>
+                      <SelectItem value="verify-ca">verify-ca</SelectItem>
+                      <SelectItem value="verify-full">verify-full</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
-              <Label className="text-xs">
-                Mot de passe DB {existing?.has_password ? "(laisser vide pour conserver)" : "*"}
-              </Label>
-              <Input
-                type="password"
-                value={form.db_password}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, db_password: e.target.value }))
-                }
-                className="h-8 text-sm"
-                placeholder={existing?.has_password ? "********" : "Mot de passe"}
-              />
-            </div>
+                <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
+                  <Label className="text-xs">
+                    Mot de passe DB {existing?.has_password ? "(laisser vide pour conserver)" : "*"}
+                  </Label>
+                  <Input
+                    type="password"
+                    value={form.db_password}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, db_password: e.target.value }))
+                    }
+                    className="h-8 text-sm"
+                    placeholder={existing?.has_password ? "********" : "Mot de passe"}
+                  />
+                </div>
+              </>
+            ) : form.connection_mode === "local_agent" ? (
+              <>
+                <div className="space-y-1.5 sm:col-span-2 lg:col-span-2">
+                  <Label className="text-xs flex items-center gap-1.5"><Server className="size-3.5" />URL Agent</Label>
+                  <Input
+                    value={form.agent_base_url}
+                    onChange={(e) => setForm((prev) => ({ ...prev, agent_base_url: e.target.value }))}
+                    className="h-8 text-sm"
+                    placeholder="https://agent-crm.bluevaloris.com"
+                  />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
+                  <Label className="text-xs">
+                    Token agent {existing?.has_agent_token ? "(laisser vide pour conserver)" : "*"}
+                  </Label>
+                  <Input
+                    type="password"
+                    value={form.agent_token}
+                    onChange={(e) => setForm((prev) => ({ ...prev, agent_token: e.target.value }))}
+                    className="h-8 text-sm"
+                    placeholder={existing?.has_agent_token ? "********" : "agt_xxx"}
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">SSH Host</Label>
+                  <Input
+                    value={form.ssh_host}
+                    onChange={(e) => setForm((prev) => ({ ...prev, ssh_host: e.target.value }))}
+                    className="h-8 text-sm"
+                    placeholder="agent-crm.bluevaloris.com"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">SSH Port</Label>
+                  <Input
+                    value={form.ssh_port}
+                    onChange={(e) => setForm((prev) => ({ ...prev, ssh_port: e.target.value }))}
+                    className="h-8 text-sm"
+                    placeholder="22"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">SSH User</Label>
+                  <Input
+                    value={form.ssh_user}
+                    onChange={(e) => setForm((prev) => ({ ...prev, ssh_user: e.target.value }))}
+                    className="h-8 text-sm"
+                    placeholder="ubuntu"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">SSH Auth</Label>
+                  <Select
+                    value={form.ssh_auth_method}
+                    onValueChange={(v) => setForm((prev) => ({ ...prev, ssh_auth_method: v as "password" | "private_key" }))}
+                  >
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="password">Password</SelectItem>
+                      <SelectItem value="private_key">Private Key</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">SSH Remote Host</Label>
+                  <Input
+                    value={form.ssh_remote_host}
+                    onChange={(e) => setForm((prev) => ({ ...prev, ssh_remote_host: e.target.value }))}
+                    className="h-8 text-sm"
+                    placeholder="127.0.0.1"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">SSH Remote Port</Label>
+                  <Input
+                    value={form.ssh_remote_port}
+                    onChange={(e) => setForm((prev) => ({ ...prev, ssh_remote_port: e.target.value }))}
+                    className="h-8 text-sm"
+                    placeholder={form.db_type === "mysql" ? "3306" : "5432"}
+                  />
+                </div>
+
+                {form.ssh_auth_method === "password" ? (
+                  <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
+                    <Label className="text-xs">
+                      Mot de passe SSH {existing?.has_ssh_password ? "(laisser vide pour conserver)" : "*"}
+                    </Label>
+                    <Input
+                      type="password"
+                      value={form.ssh_password}
+                      onChange={(e) => setForm((prev) => ({ ...prev, ssh_password: e.target.value }))}
+                      className="h-8 text-sm"
+                      placeholder={existing?.has_ssh_password ? "********" : "ssh password"}
+                    />
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
+                      <Label className="text-xs">
+                        Cle privee SSH {existing?.has_ssh_private_key ? "(laisser vide pour conserver)" : "*"}
+                      </Label>
+                      <Textarea
+                        value={form.ssh_private_key}
+                        onChange={(e) => setForm((prev) => ({ ...prev, ssh_private_key: e.target.value }))}
+                        className="min-h-24 text-xs"
+                        placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
+                      />
+                    </div>
+                    <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
+                      <Label className="text-xs">Passphrase cle privee (optionnel)</Label>
+                      <Input
+                        type="password"
+                        value={form.ssh_private_key_passphrase}
+                        onChange={(e) => setForm((prev) => ({ ...prev, ssh_private_key_passphrase: e.target.value }))}
+                        className="h-8 text-sm"
+                        placeholder="passphrase"
+                      />
+                    </div>
+                  </>
+                )}
+              </>
+            )}
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3">
