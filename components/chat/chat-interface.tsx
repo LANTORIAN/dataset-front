@@ -280,6 +280,42 @@ type ParsedTable = {
   rows: string[][];
 };
 
+function parseDbTableMarker(content: string): ParsedTable | null {
+  const raw = stripCodeFences(content);
+  const marker = "[[DB_TABLE]]";
+  const idx = raw.indexOf(marker);
+  if (idx === -1) return null;
+
+  const payloadText = raw.slice(idx + marker.length).trim();
+  try {
+    const payload = JSON.parse(payloadText) as {
+      table?: string;
+      columns?: string[];
+      rows?: Array<Record<string, unknown>>;
+    };
+    const columns = Array.isArray(payload.columns)
+      ? payload.columns.map((c) => String(c))
+      : [];
+    const rowsArray = Array.isArray(payload.rows) ? payload.rows : [];
+    if (columns.length < 1 || rowsArray.length < 1) return null;
+
+    const rows = rowsArray.map((row) =>
+      columns.map((col) => {
+        const value = row?.[col];
+        return value == null ? "-" : String(value);
+      })
+    );
+
+    return {
+      title: payload.table ? `Table ${payload.table}` : "Table",
+      headers: columns.map((c) => c.replace(/_/g, " ")),
+      rows,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function stripCodeFences(content: string): string {
   const raw = content.trim();
   const fenced = raw.match(/^```(?:text|markdown)?\n([\s\S]*?)\n```$/i);
@@ -329,6 +365,9 @@ function parseFlattenedPipeTable(content: string): ParsedTable | null {
 function parseAssistantTable(content: string): ParsedTable | null {
   const raw = stripCodeFences(content);
   if (!raw) return null;
+
+  const fromMarker = parseDbTableMarker(raw);
+  if (fromMarker) return fromMarker;
 
   const lines = raw.split("\n").map((l) => l.trim()).filter(Boolean);
 
