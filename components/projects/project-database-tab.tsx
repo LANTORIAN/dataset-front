@@ -143,6 +143,7 @@ export function ProjectDatabaseTab({ projectId }: Props) {
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
   const [testResult, setTestResult] = useState<ProjectDatabaseTestResult | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [showSshAdvanced, setShowSshAdvanced] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -184,7 +185,7 @@ export function ProjectDatabaseTab({ projectId }: Props) {
     ssh_password: form.connection_mode === "ssh_tunnel" && form.ssh_auth_method === "password" ? (form.ssh_password.trim() || undefined) : undefined,
     ssh_private_key: form.connection_mode === "ssh_tunnel" && form.ssh_auth_method === "private_key" ? (form.ssh_private_key.trim() || undefined) : undefined,
     ssh_private_key_passphrase: form.connection_mode === "ssh_tunnel" && form.ssh_auth_method === "private_key" ? (form.ssh_private_key_passphrase.trim() || undefined) : undefined,
-    ssh_remote_host: form.connection_mode === "ssh_tunnel" ? form.ssh_remote_host.trim() : undefined,
+    ssh_remote_host: form.connection_mode === "ssh_tunnel" ? (form.ssh_remote_host.trim() || "127.0.0.1") : undefined,
     ssh_remote_port: form.connection_mode === "ssh_tunnel" ? (parseInt(form.ssh_remote_port, 10) || (form.db_type === "mysql" ? 3306 : 5432)) : undefined,
     is_enabled: form.is_enabled,
     consent_share_data: form.consent_share_data,
@@ -218,8 +219,16 @@ export function ProjectDatabaseTab({ projectId }: Props) {
         return;
       }
     } else {
-      if (!payload.ssh_host || !payload.ssh_user || !payload.ssh_remote_port) {
-        setFormError("SSH host, user et remote port sont obligatoires en mode SSH tunnel.");
+      if (!payload.ssh_host || !payload.ssh_user) {
+        setFormError("SSH host et user sont obligatoires en mode SSH tunnel.");
+        return;
+      }
+      if (!payload.db_name || !payload.db_user) {
+        setFormError("DB name et DB user sont obligatoires en mode SSH tunnel.");
+        return;
+      }
+      if (!existing?.has_password && !payload.db_password) {
+        setFormError("Le mot de passe DB est obligatoire pour la premiere configuration SSH.");
         return;
       }
       if (form.ssh_auth_method === "password") {
@@ -447,7 +456,7 @@ export function ProjectDatabaseTab({ projectId }: Props) {
             ) : (
               <>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">SSH Host</Label>
+                  <Label className="text-xs">Serveur SSH</Label>
                   <Input
                     value={form.ssh_host}
                     onChange={(e) => setForm((prev) => ({ ...prev, ssh_host: e.target.value }))}
@@ -456,7 +465,7 @@ export function ProjectDatabaseTab({ projectId }: Props) {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">SSH Port</Label>
+                  <Label className="text-xs">Port SSH</Label>
                   <Input
                     value={form.ssh_port}
                     onChange={(e) => setForm((prev) => ({ ...prev, ssh_port: e.target.value }))}
@@ -465,7 +474,7 @@ export function ProjectDatabaseTab({ projectId }: Props) {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">SSH User</Label>
+                  <Label className="text-xs">Utilisateur SSH</Label>
                   <Input
                     value={form.ssh_user}
                     onChange={(e) => setForm((prev) => ({ ...prev, ssh_user: e.target.value }))}
@@ -474,36 +483,79 @@ export function ProjectDatabaseTab({ projectId }: Props) {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">SSH Auth</Label>
+                  <Label className="text-xs">Methode SSH</Label>
                   <Select
                     value={form.ssh_auth_method}
                     onValueChange={(v) => setForm((prev) => ({ ...prev, ssh_auth_method: v as "password" | "private_key" }))}
                   >
                     <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="password">Password</SelectItem>
-                      <SelectItem value="private_key">Private Key</SelectItem>
+                      <SelectItem value="password">Mot de passe</SelectItem>
+                      <SelectItem value="private_key">Cle privee</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">SSH Remote Host</Label>
+                  <Label className="text-xs">Nom de base</Label>
                   <Input
-                    value={form.ssh_remote_host}
-                    onChange={(e) => setForm((prev) => ({ ...prev, ssh_remote_host: e.target.value }))}
+                    value={form.db_name}
+                    onChange={(e) => setForm((prev) => ({ ...prev, db_name: e.target.value }))}
                     className="h-8 text-sm"
-                    placeholder="127.0.0.1"
+                    placeholder="crm_db"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">SSH Remote Port</Label>
+                  <Label className="text-xs">Utilisateur DB</Label>
                   <Input
-                    value={form.ssh_remote_port}
-                    onChange={(e) => setForm((prev) => ({ ...prev, ssh_remote_port: e.target.value }))}
+                    value={form.db_user}
+                    onChange={(e) => setForm((prev) => ({ ...prev, db_user: e.target.value }))}
                     className="h-8 text-sm"
-                    placeholder={form.db_type === "mysql" ? "3306" : "5432"}
+                    placeholder="readonly_user"
                   />
                 </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Mot de passe DB {existing?.has_password ? "(laisser vide pour conserver)" : "*"}</Label>
+                  <Input
+                    type="password"
+                    value={form.db_password}
+                    onChange={(e) => setForm((prev) => ({ ...prev, db_password: e.target.value }))}
+                    className="h-8 text-sm"
+                    placeholder={existing?.has_password ? "********" : "db password"}
+                  />
+                </div>
+
+                <div className="sm:col-span-2 lg:col-span-3 rounded-md border p-2">
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowSshAdvanced((v) => !v)}
+                  >
+                    {showSshAdvanced ? "Masquer la base distante (avance)" : "Afficher la base distante via SSH (avance)"}
+                  </button>
+                </div>
+
+                {showSshAdvanced && (
+                  <>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Hote base distante (via SSH)</Label>
+                      <Input
+                        value={form.ssh_remote_host}
+                        onChange={(e) => setForm((prev) => ({ ...prev, ssh_remote_host: e.target.value }))}
+                        className="h-8 text-sm"
+                        placeholder="127.0.0.1"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Port base distante (via SSH)</Label>
+                      <Input
+                        value={form.ssh_remote_port}
+                        onChange={(e) => setForm((prev) => ({ ...prev, ssh_remote_port: e.target.value }))}
+                        className="h-8 text-sm"
+                        placeholder={form.db_type === "mysql" ? "3306" : "5432"}
+                      />
+                    </div>
+                  </>
+                )}
 
                 {form.ssh_auth_method === "password" ? (
                   <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
