@@ -172,9 +172,12 @@ export function ProjectDatabaseTab({ projectId }: Props) {
     db_type: form.db_type,
     host: form.connection_mode === "direct" ? form.host.trim() : undefined,
     port: form.connection_mode === "direct" ? (parseInt(form.port, 10) || 5432) : undefined,
-    db_name: form.connection_mode === "direct" ? form.db_name.trim() : undefined,
-    db_user: form.connection_mode === "direct" ? form.db_user.trim() : undefined,
-    db_password: form.connection_mode === "direct" ? (form.db_password.trim() || undefined) : undefined,
+    db_name: form.connection_mode === "local_agent" ? undefined : form.db_name.trim(),
+    db_user: form.connection_mode === "local_agent" ? undefined : form.db_user.trim(),
+    db_password:
+      form.connection_mode === "local_agent"
+        ? undefined
+        : (form.db_password.trim() || undefined),
     ssl_mode: form.ssl_mode,
     agent_base_url: form.connection_mode === "local_agent" ? form.agent_base_url.trim() : undefined,
     agent_token: form.connection_mode === "local_agent" ? (form.agent_token.trim() || undefined) : undefined,
