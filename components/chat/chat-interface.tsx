@@ -287,8 +287,31 @@ function parseDbTableMarker(content: string): ParsedTable | null {
   if (idx === -1) return null;
 
   const payloadText = raw.slice(idx + marker.length).trim();
+
+  // Extract first balanced JSON object after marker
+  let jsonChunk = "";
+  let depth = 0;
+  let started = false;
+  for (let i = 0; i < payloadText.length; i += 1) {
+    const ch = payloadText[i];
+    if (!started) {
+      if (ch !== "{") continue;
+      started = true;
+      depth = 1;
+      jsonChunk += ch;
+      continue;
+    }
+    jsonChunk += ch;
+    if (ch === "{") depth += 1;
+    else if (ch === "}") {
+      depth -= 1;
+      if (depth === 0) break;
+    }
+  }
+
+  if (!jsonChunk) return null;
   try {
-    const payload = JSON.parse(payloadText) as {
+    const payload = JSON.parse(jsonChunk) as {
       table?: string;
       columns?: string[];
       rows?: Array<Record<string, unknown>>;
@@ -314,6 +337,14 @@ function parseDbTableMarker(content: string): ParsedTable | null {
   } catch {
     return null;
   }
+}
+
+function removeDbTableMarker(content: string): string {
+  const raw = stripCodeFences(content);
+  const marker = "[[DB_TABLE]]";
+  const idx = raw.indexOf(marker);
+  if (idx === -1) return raw;
+  return raw.slice(0, idx).trim();
 }
 
 function stripCodeFences(content: string): string {
@@ -422,7 +453,8 @@ function parseAssistantTable(content: string): ParsedTable | null {
 
 function MessageBubble({ message, isAdmin, onFeedback }: BubbleProps) {
   const isUser = message.role === "user";
-  const isAsciiTable = !isUser && message.content.includes("Table ") && message.content.includes("+-") && message.content.includes("| ");
+  const cleanedContent = isUser ? message.content : removeDbTableMarker(message.content);
+  const isAsciiTable = !isUser && cleanedContent.includes("Table ") && cleanedContent.includes("+-") && cleanedContent.includes("| ");
   const parsedTable = !isUser ? parseAssistantTable(message.content) : null;
   const [showComment, setShowComment]   = useState(false);
   const [comment, setComment]           = useState("");
@@ -502,9 +534,9 @@ function MessageBubble({ message, isAdmin, onFeedback }: BubbleProps) {
                 </div>
               </div>
             ) : isAsciiTable ? (
-              <pre className="whitespace-pre overflow-x-auto text-xs leading-relaxed font-mono">{message.content}</pre>
+              <pre className="whitespace-pre overflow-x-auto text-xs leading-relaxed font-mono">{cleanedContent}</pre>
             ) : (
-              <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+              <p className="whitespace-pre-wrap leading-relaxed">{cleanedContent}</p>
             )
           )}
           {message.streaming && message.content && (
