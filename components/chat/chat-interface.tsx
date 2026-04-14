@@ -280,8 +280,54 @@ type ParsedTable = {
   rows: string[][];
 };
 
+function stripCodeFences(content: string): string {
+  const raw = content.trim();
+  const fenced = raw.match(/^```(?:text|markdown)?\n([\s\S]*?)\n```$/i);
+  return fenced ? fenced[1].trim() : raw;
+}
+
+function parseFlattenedPipeTable(content: string): ParsedTable | null {
+  const raw = stripCodeFences(content);
+  if (!raw.includes("|") || !raw.includes("Table ")) return null;
+
+  const titleMatch = raw.match(/^(Table\s+[^|+\n]+(?:\([^)]*\))?)/i);
+  const title = titleMatch?.[1]?.trim();
+  const start = raw.indexOf("|");
+  if (start < 0) return null;
+
+  const payload = raw
+    .slice(start)
+    .replace(/(?:\+\s*){2,}/g, "||")
+    .replace(/(?:-\s*){2,}/g, " ")
+    .replace(/\|\s*\.\s*$/, "|");
+
+  const segments = payload
+    .split(/\|\|+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s) => s.replace(/\s{2,}/g, " ").trim())
+    .map((s) =>
+      s
+        .split("|")
+        .map((c) => c.trim())
+        .filter((c) => !!c && !/^[-+\s]+$/.test(c))
+    )
+    .filter((cells) => cells.length >= 2);
+
+  if (segments.length < 2) return null;
+
+  const headers = segments[0];
+  const rows = segments
+    .slice(1)
+    .map((row) => row.slice(0, headers.length))
+    .filter((row) => row.length === headers.length);
+
+  if (!rows.length) return null;
+  return { title, headers, rows };
+}
+
 function parseAssistantTable(content: string): ParsedTable | null {
-  const raw = content?.trim();
+  const raw = stripCodeFences(content);
   if (!raw) return null;
 
   const lines = raw.split("\n").map((l) => l.trim()).filter(Boolean);
@@ -305,6 +351,9 @@ function parseAssistantTable(content: string): ParsedTable | null {
       }
     }
   }
+
+  const flattened = parseFlattenedPipeTable(raw);
+  if (flattened) return flattened;
 
   // Legacy key=value | key=value single-line format
   if (raw.includes("|") && (raw.includes("=") || raw.includes(":"))) {
