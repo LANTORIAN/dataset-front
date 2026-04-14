@@ -25,11 +25,12 @@ export const projectDatabaseService = {
     );
   },
 
-  test(projectId: string) {
+  test(projectId: string, payload?: UpsertProjectDatabaseConfigPayload) {
     return withService(
       () =>
         bearerPost<ProjectDatabaseTestResult>(
-          `/projects/${projectId}/database-config/test`
+          `/projects/${projectId}/database-config/test`,
+          payload
         ),
       {
         successMessage: "Connexion DB validée",

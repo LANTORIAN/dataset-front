@@ -264,7 +264,7 @@ export function ProjectDatabaseTab({ projectId }: Props) {
   const handleTest = async () => {
     setTesting(true);
     setTestResult(null);
-    const result = await projectDatabaseService.test(projectId);
+    const result = await projectDatabaseService.test(projectId, payload);
     if (result.ok) {
       setTestResult(result.data);
       await load();

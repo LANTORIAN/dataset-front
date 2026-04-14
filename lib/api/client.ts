@@ -74,12 +74,16 @@ async function parseResponseBody<T>(res: Response): Promise<T> {
 }
 
 function buildAuthHeaders(auth: AuthMode): Record<string, string> {
+  const token = tokenStore.get();
+
   if (auth.type === "bearer") {
-    const token = tokenStore.get();
     return token ? { Authorization: `Bearer ${token}` } : {};
   }
   if (auth.type === "api-key") {
-    return { "X-API-Key": auth.key };
+    return {
+      "X-API-Key": auth.key,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
   }
   return {};
 }
@@ -112,7 +116,7 @@ async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<
     init.body = raw ? (body as BodyInit) : JSON.stringify(body);
   }
 
-  if (auth.type === "bearer" && !tokenStore.get()) {
+  if (auth.type !== "none" && !tokenStore.get()) {
     await tryRefreshAccessToken();
     Object.assign(requestHeaders, buildAuthHeaders(auth));
   }
