@@ -12,7 +12,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8087/api/v
 //   /api/auth/{login|refresh|logout}. Jamais lisible par JavaScript.
 //
 let _accessToken: string | null = null;
-let _authExpiryTimer: ReturnType<typeof window.setTimeout> | null = null;
+let _authExpiryTimer: number | null = null;
 
 function clearAuthExpiryTimer() {
   if (_authExpiryTimer !== null) {
