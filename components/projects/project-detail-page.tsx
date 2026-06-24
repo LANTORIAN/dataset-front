@@ -27,6 +27,7 @@ import { UploadFileDialog } from "./upload-file-dialog";
 import { ProjectConfigForm } from "./project-config-form";
 import { KnowledgeSourcesTab } from "./knowledge-sources-tab";
 import { ProjectDatabaseTab } from "./project-database-tab";
+import { ProjectSqlTab } from "./project-sql-tab";
 import { projectsService } from "@/services/projects.service";
 import { ragFilesService } from "@/services/rag-files.service";
 import { useDebounce } from "@/lib/hooks/use-debounce";
@@ -147,10 +148,11 @@ export function ProjectDetailPage({ projectId }: Props) {
       </div>
 
       <Tabs defaultValue="files">
-        <TabsList className="mx-auto grid w-full max-w-3xl grid-cols-2 md:grid-cols-4">
+        <TabsList className="mx-auto grid w-full max-w-5xl grid-cols-2 md:grid-cols-5">
           <TabsTrigger value="files">Fichiers</TabsTrigger>
           <TabsTrigger value="sources">Sources externes</TabsTrigger>
           <TabsTrigger value="database">Base de donnees</TabsTrigger>
+          <TabsTrigger value="sql">SQL Agent</TabsTrigger>
           <TabsTrigger value="config">Configuration</TabsTrigger>
         </TabsList>
 
@@ -167,6 +169,10 @@ export function ProjectDetailPage({ projectId }: Props) {
 
         <TabsContent value="database" className="mt-4">
           <ProjectDatabaseTab projectId={projectId} />
+        </TabsContent>
+
+        <TabsContent value="sql" className="mt-4">
+          <ProjectSqlTab projectId={projectId} />
         </TabsContent>
 
         <TabsContent value="files" className="mt-4">

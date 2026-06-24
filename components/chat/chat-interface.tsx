@@ -2,7 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  BrainCircuit,
+  ChevronDown,
+  ChevronRight,
   Send, Bot, User, Loader2, MessageSquare, Zap,
+  ShieldCheck,
   ThumbsUp, ThumbsDown, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,6 +28,10 @@ import { MindLogo } from "@/components/branding/mind-logo";
 interface UiMessage extends ConversationMessage {
   streaming?: boolean;
   source_type?: string;
+  intent?: string;
+  planned_intent?: string;
+  answer_mode?: string;
+  confidence_level?: string;
   cached?: boolean;
   response_time?: number;
   /** Real backend message ID (from SSE meta event or loaded from history). */
@@ -31,6 +39,7 @@ interface UiMessage extends ConversationMessage {
   /** Feedback already submitted for this message. */
   feedback?: FeedbackRating;
   progress_steps?: Array<{ step: string; message: string }>;
+  trace_events?: Array<{ kind: "reasoning" | "verify"; title: string; message: string }>;
 }
 
 interface Props {
@@ -51,16 +60,27 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
 
   // Load conversation history
   useEffect(() => {
-    setActiveConvId(conversationId);
+    if (!isStreaming && conversationId !== activeConvId) {
+      const nextConversationId = conversationId;
+      const timer = window.setTimeout(() => {
+        setActiveConvId(nextConversationId);
+      }, 0);
+      return () => window.clearTimeout(timer);
+    }
     if (isStreaming) return;
-    if (!conversationId || !project) { setMessages([]); return; }
+    if (!conversationId || !project) {
+      const timer = window.setTimeout(() => {
+        setMessages([]);
+      }, 0);
+      return () => window.clearTimeout(timer);
+    }
     conversationsService.messages(conversationId, apiKey).then((r) => {
       if (r.ok) {
         // For history messages, id IS the real backend message id
         setMessages(r.data.messages.map((m) => ({ ...m, backend_id: m.id }) as UiMessage));
       }
     });
-  }, [conversationId, project, apiKey, isStreaming]);
+  }, [conversationId, project, apiKey, isStreaming, activeConvId]);
 
   // Auto-scroll
   useEffect(() => {
@@ -100,6 +120,7 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
       timestamp:       new Date().toISOString(),
       streaming:       true,
       progress_steps:  [{ step: "init", message: "Connexion au moteur IA..." }],
+      trace_events:    [],
     };
 
     setMessages((prev) => [...prev, userMsg, assistantMsg]);
@@ -127,6 +148,20 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
             })
           ),
 
+        onTrace: (trace) =>
+          setMessages((prev) =>
+            prev.map((m) => {
+              if (m.id !== assistantId) return m;
+              const existing = m.trace_events ?? [];
+              const next = existing.some((event) => event.kind === trace.kind && event.title === trace.title)
+                ? existing.map((event) =>
+                    event.kind === trace.kind && event.title === trace.title ? trace : event
+                  )
+                : [...existing, trace];
+              return { ...m, trace_events: next };
+            })
+          ),
+
         onDone: (meta) => {
           if (meta.conversationId && !activeConvId) {
             setActiveConvId(meta.conversationId);
@@ -139,10 +174,15 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
                     ...m,
                     streaming:     false,
                     source_type:   meta.sourceType,
+                    intent:        meta.intent,
+                    planned_intent: meta.plannedIntent,
+                    answer_mode:   meta.answerMode,
+                    confidence_level: meta.confidenceLevel,
                     cached:        meta.cached,
                     response_time: meta.responseTime,
                     backend_id:    meta.messageId,
                     progress_steps: m.progress_steps ?? [],
+                    trace_events: m.trace_events ?? [],
                   }
                 : m
             )
@@ -451,6 +491,19 @@ function parseAssistantTable(content: string): ParsedTable | null {
   return null;
 }
 
+function confidenceBadgeClass(level: string | undefined): string {
+  switch (level) {
+    case "high":
+      return "border-success-border text-success";
+    case "medium":
+      return "border-warning text-warning-foreground";
+    case "low":
+      return "border-destructive/40 text-destructive";
+    default:
+      return "";
+  }
+}
+
 function MessageBubble({ message, isAdmin, onFeedback }: BubbleProps) {
   const isUser = message.role === "user";
   const cleanedContent = isUser ? message.content : removeDbTableMarker(message.content);
@@ -460,6 +513,10 @@ function MessageBubble({ message, isAdmin, onFeedback }: BubbleProps) {
   const [comment, setComment]           = useState("");
   const [selectedCats, setSelectedCats] = useState<string[]>([]);
   const [submitting, setSubmitting]     = useState(false);
+  const [traceOpen, setTraceOpen]       = useState(false);
+
+  const reasoningCount = message.trace_events?.filter((event) => event.kind === "reasoning").length ?? 0;
+  const verifyCount = message.trace_events?.filter((event) => event.kind === "verify").length ?? 0;
 
   const handleThumbUp = () => {
     if (message.feedback) return;
@@ -553,6 +610,56 @@ function MessageBubble({ message, isAdmin, onFeedback }: BubbleProps) {
               ))}
             </div>
           )}
+
+          {!isUser && isAdmin && (message.trace_events?.length ?? 0) > 0 && (
+            <div className="mt-2 border-t border-border/40 pt-2">
+              <button
+                type="button"
+                onClick={() => setTraceOpen((value) => !value)}
+                className="flex w-full items-center justify-between rounded-lg border border-border/40 bg-background/20 px-2.5 py-2 text-left text-xs transition-colors hover:bg-background/30"
+              >
+                <div className="flex items-center gap-2">
+                  <BrainCircuit className="size-3.5 opacity-80" />
+                  <span className="font-medium">Trace agentique</span>
+                  <Badge variant="outline" className="h-4 text-[10px]">
+                    {message.trace_events?.length} événement(s)
+                  </Badge>
+                  {reasoningCount > 0 && (
+                    <Badge variant="secondary" className="h-4 gap-1 text-[10px]">
+                      <BrainCircuit className="size-2.5" />{reasoningCount}
+                    </Badge>
+                  )}
+                  {verifyCount > 0 && (
+                    <Badge variant="secondary" className="h-4 gap-1 text-[10px]">
+                      <ShieldCheck className="size-2.5" />{verifyCount}
+                    </Badge>
+                  )}
+                </div>
+                {traceOpen ? <ChevronDown className="size-3.5 opacity-70" /> : <ChevronRight className="size-3.5 opacity-70" />}
+              </button>
+
+              {traceOpen && (
+                <div className="mt-2 space-y-1.5">
+                  {message.trace_events?.map((event, idx) => (
+                    <div
+                      key={`${event.kind}-${event.title}-${idx}`}
+                      className="rounded-md border border-border/40 bg-background/30 px-2.5 py-2 text-xs"
+                    >
+                      <div className="flex items-center gap-2 font-medium opacity-80">
+                        {event.kind === "reasoning" ? (
+                          <BrainCircuit className="size-3.5" />
+                        ) : (
+                          <ShieldCheck className="size-3.5" />
+                        )}
+                        <span>{event.title}</span>
+                      </div>
+                      <div className="mt-1 whitespace-pre-wrap pl-5 opacity-90">{event.message}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Meta badges + feedback — assistant only, after streaming */}
@@ -561,6 +668,24 @@ function MessageBubble({ message, isAdmin, onFeedback }: BubbleProps) {
             {isAdmin && message.source_type && (
               <Badge variant="outline" className="text-xs h-4 gap-1">
                 <MindLogo className="size-3" />{message.source_type}
+              </Badge>
+            )}
+            {isAdmin && message.planned_intent && (
+              <Badge variant="outline" className="text-xs h-4">
+                intent {message.planned_intent}
+              </Badge>
+            )}
+            {isAdmin && message.answer_mode && (
+              <Badge variant="outline" className="text-xs h-4">
+                mode {message.answer_mode}
+              </Badge>
+            )}
+            {isAdmin && message.confidence_level && (
+              <Badge
+                variant="outline"
+                className={cn("text-xs h-4", confidenceBadgeClass(message.confidence_level))}
+              >
+                conf {message.confidence_level}
               </Badge>
             )}
             {isAdmin && message.cached && (

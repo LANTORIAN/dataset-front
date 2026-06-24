@@ -12,11 +12,52 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8087/api/v
 //   /api/auth/{login|refresh|logout}. Jamais lisible par JavaScript.
 //
 let _accessToken: string | null = null;
+let _authExpiryTimer: ReturnType<typeof window.setTimeout> | null = null;
+
+function clearAuthExpiryTimer() {
+  if (_authExpiryTimer !== null) {
+    window.clearTimeout(_authExpiryTimer);
+    _authExpiryTimer = null;
+  }
+}
+
+function getJwtExpiryMs(token: string): number | null {
+  try {
+    const [, payload] = token.split(".");
+    if (!payload) return null;
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    const decoded = JSON.parse(atob(padded)) as { exp?: number };
+    return typeof decoded.exp === "number" ? decoded.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
 
 export const tokenStore = {
   get:        ()           => _accessToken,
-  set:        (t: string)  => { _accessToken = t; _authExpiredNotified = false; },
-  clear:      ()           => { _accessToken = null; },
+  set:        (t: string)  => {
+    _accessToken = t;
+    _authExpiredNotified = false;
+    if (typeof window !== "undefined") {
+      clearAuthExpiryTimer();
+      const expiresAt = getJwtExpiryMs(t);
+      if (expiresAt) {
+        const delay = expiresAt - Date.now();
+        if (delay <= 0) {
+          notifyAuthExpired();
+        } else {
+          _authExpiryTimer = window.setTimeout(() => {
+            notifyAuthExpired();
+          }, delay);
+        }
+      }
+    }
+  },
+  clear:      ()           => {
+    _accessToken = null;
+    if (typeof window !== "undefined") clearAuthExpiryTimer();
+  },
   // Stubs — refresh token est dans le cookie HttpOnly, non accessible client
   getRefresh: ()           => null as string | null,
   setRefresh: ()           => { /* géré côté serveur */ },
@@ -189,6 +230,7 @@ export function uploadRagFile(projectId: string, file: File, opts: UploadOptions
       if (xhr.status >= 200 && xhr.status < 300) {
         try { resolve(JSON.parse(xhr.responseText)); } catch { resolve(null); }
       } else {
+        if (xhr.status === 401) notifyAuthExpired();
         let msg = `Upload échoué (${xhr.status})`;
         try {
           const body = JSON.parse(xhr.responseText);
@@ -238,7 +280,11 @@ export function createChatStream(
     signal: controller.signal,
   })
     .then(async (res) => {
-      if (!res.ok || !res.body) { callbacks.onError(); return; }
+      if (!res.ok || !res.body) {
+        if (res.status === 401) notifyAuthExpired();
+        callbacks.onError();
+        return;
+      }
       const reader  = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer    = "";

@@ -400,6 +400,114 @@ export interface ProjectDatabaseTestResult {
   tables_preview: string[];
 }
 
+export type ProjectSqlProvider = "heuristic" | "vanna" | "hybrid";
+
+export interface ProjectSqlAgentSettings {
+  id: string;
+  project_id: string;
+  is_enabled: boolean;
+  shadow_mode: boolean;
+  provider: ProjectSqlProvider;
+  model_name: string | null;
+  temperature: number | null;
+  max_context_tables: number;
+  max_examples: number;
+  auto_refresh_schema: boolean;
+  schema_cache_ttl_seconds: number;
+  created_by: string | null;
+  updated_by: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface UpsertProjectSqlAgentSettingsPayload {
+  is_enabled: boolean;
+  shadow_mode: boolean;
+  provider: ProjectSqlProvider;
+  model_name?: string | null;
+  temperature?: number | null;
+  max_context_tables: number;
+  max_examples: number;
+  auto_refresh_schema: boolean;
+  schema_cache_ttl_seconds: number;
+}
+
+export interface ProjectSqlAlias {
+  id: string;
+  project_id: string;
+  alias: string;
+  target_type: "table" | "column" | "value";
+  target_name: string;
+  table_name: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface CreateProjectSqlAliasPayload {
+  alias: string;
+  target_type: "table" | "column" | "value";
+  target_name: string;
+  table_name?: string;
+  notes?: string;
+}
+
+export interface ProjectSqlAliasListResponse {
+  aliases: ProjectSqlAlias[];
+  total: number;
+}
+
+export interface ProjectSqlExample {
+  id: string;
+  project_id: string;
+  question: string;
+  sql_query: string;
+  rationale: string | null;
+  tables_used: string[];
+  tags: string[];
+  success_count: number;
+  failure_count: number;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface CreateProjectSqlExamplePayload {
+  question: string;
+  sql_query: string;
+  rationale?: string;
+  tables_used: string[];
+  tags: string[];
+  is_active: boolean;
+}
+
+export interface ProjectSqlExampleListResponse {
+  examples: ProjectSqlExample[];
+  total: number;
+}
+
+export interface ProjectSchemaCache {
+  project_id: string;
+  schema_hash: string | null;
+  schema_json: {
+    meta?: Record<string, unknown>;
+    tables?: Record<
+      string,
+      {
+        all?: string[];
+        safe?: string[];
+        columns?: Array<{ name: string; data_type?: string | null; is_safe?: boolean }>;
+      }
+    >;
+  };
+  source_updated_at: string | null;
+  refreshed_at: string | null;
+  ttl_seconds: number;
+  updated_at: string | null;
+}
+
 export interface FailedQuery {
   query: string;
   error_type: string;

@@ -19,6 +19,10 @@ export interface StreamCallbacks {
     conversationId?: string;
     messageId?: string;
     sourceType?: string;
+    intent?: string;
+    plannedIntent?: string;
+    answerMode?: string;
+    confidenceLevel?: string;
     cached?: boolean;
     responseTime?: number;
   }) => void;
@@ -26,6 +30,8 @@ export interface StreamCallbacks {
   onError: (message: string) => void;
   /** Appelé à chaque étape de progression côté backend. */
   onProgress?: (progress: { step: string; message: string }) => void;
+  /** Appelé pour les événements de raisonnement/vérification destinés au debug UI. */
+  onTrace?: (trace: { kind: "reasoning" | "verify"; title: string; message: string }) => void;
 }
 
 // ── streamChat ─────────────────────────────────────────────────────────────
@@ -41,6 +47,11 @@ export function streamChat(
   // State shared across events within a single stream
   let conversationId: string | undefined;
   let messageId: string | undefined;
+  let sourceType: string | undefined;
+  let intent: string | undefined;
+  let plannedIntent: string | undefined;
+  let answerMode: string | undefined;
+  let confidenceLevel: string | undefined;
 
   return createChatStream(opts, {
     onEvent: (eventName, data) => {
@@ -49,6 +60,11 @@ export function streamChat(
           const parsed = JSON.parse(data) as Record<string, unknown>;
           conversationId = parsed.conversation_id as string | undefined;
           messageId      = parsed.message_id      as string | undefined;
+          sourceType = parsed.source as string | undefined;
+          intent = parsed.intent as string | undefined;
+          plannedIntent = parsed.planned_intent as string | undefined;
+          answerMode = parsed.answer_mode as string | undefined;
+          confidenceLevel = parsed.confidence_level as string | undefined;
         } catch { /* ignore malformed meta */ }
         return;
       }
@@ -59,12 +75,25 @@ export function streamChat(
           callbacks.onDone({
             conversationId,
             messageId,
+            sourceType,
+            intent,
+            plannedIntent,
+            answerMode,
+            confidenceLevel,
             responseTime: typeof parsed.response_time_ms === "number"
               ? parsed.response_time_ms / 1000
               : undefined,
           });
         } catch {
-          callbacks.onDone({ conversationId, messageId });
+          callbacks.onDone({
+            conversationId,
+            messageId,
+            sourceType,
+            intent,
+            plannedIntent,
+            answerMode,
+            confidenceLevel,
+          });
         }
         return;
       }
@@ -82,6 +111,22 @@ export function streamChat(
           callbacks.onProgress?.({ step, message });
         } catch {
           callbacks.onProgress?.({ step: "progress", message: data || "Traitement en cours..." });
+        }
+        return;
+      }
+
+      if (eventName === "reasoning" || eventName === "verify") {
+        try {
+          const parsed = JSON.parse(data) as Record<string, unknown>;
+          const title = typeof parsed.title === "string" ? parsed.title : eventName;
+          const message = typeof parsed.message === "string" ? parsed.message : data;
+          callbacks.onTrace?.({
+            kind: eventName,
+            title,
+            message,
+          });
+        } catch {
+          callbacks.onTrace?.({ kind: eventName, title: eventName, message: data });
         }
         return;
       }
