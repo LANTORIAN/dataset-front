@@ -697,6 +697,78 @@ function AgenticTelemetry({ message }: { message: UiMessage }) {
   );
 }
 
+function AgenticThinking({ steps, compact = false }: { steps: UiMessage["progress_steps"]; compact?: boolean }) {
+  const activeSteps = steps?.length ? steps.slice(-4) : [{ step: "init", message: "Initialisation du graphe agentique..." }];
+  const latest = activeSteps[activeSteps.length - 1]?.message ?? "Orchestration en cours...";
+  const agents = [
+    { label: "Planner", icon: GitBranch, delay: "0ms" },
+    { label: "RAG", icon: FileSearch, delay: "180ms" },
+    { label: "SQL", icon: Database, delay: "360ms" },
+    { label: "Synthèse", icon: BrainCircuit, delay: "540ms" },
+  ];
+
+  return (
+    <div className={cn(
+      "relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-background/70 to-info/10 shadow-sm",
+      compact ? "mt-2 p-2.5" : "min-w-[270px] p-3"
+    )}>
+      <div className="pointer-events-none absolute -left-8 -top-8 size-28 rounded-full bg-primary/15 blur-2xl" />
+      <div className="pointer-events-none absolute -bottom-10 right-4 size-24 rounded-full bg-info/15 blur-2xl" />
+      <div className="pointer-events-none absolute -right-8 -top-8 size-24 rounded-full border border-primary/20 animate-ping" />
+
+      <div className="relative flex items-center gap-3">
+        <div className="relative flex size-12 shrink-0 items-center justify-center">
+          <div className="absolute inset-0 rounded-full border border-primary/30" />
+          <div className="absolute inset-1 rounded-full border border-dashed border-primary/45 animate-spin [animation-duration:3.8s]" />
+          <div className="absolute inset-3 rounded-full bg-primary/20 blur-sm animate-pulse" />
+          <BrainCircuit className="relative size-5 text-primary" />
+          {["left-0 top-2", "right-0 top-1", "bottom-1 left-2", "bottom-2 right-1"].map((pos, idx) => (
+            <span
+              key={pos}
+              className={cn("absolute size-1.5 rounded-full bg-primary text-primary shadow-[0_0_10px_currentColor] animate-pulse", pos)}
+              style={{ animationDelay: `${idx * 160}ms` }}
+            />
+          ))}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge variant="secondary" className="h-5 gap-1 rounded-full border border-primary/20 bg-primary/10 text-[10px] text-primary">
+              <Zap className="size-2.5" /> Mode agentique
+            </Badge>
+            <span className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">multi-agents</span>
+          </div>
+          <p className="mt-1 truncate text-xs font-medium text-foreground">{latest}</p>
+        </div>
+      </div>
+
+      <div className="relative mt-3 grid grid-cols-4 gap-1.5">
+        {agents.map(({ label, icon: Icon, delay }) => (
+          <div key={label} className="rounded-xl border border-border/35 bg-background/45 px-2 py-2 text-center backdrop-blur">
+            <Icon className="mx-auto size-3.5 text-primary animate-pulse" style={{ animationDelay: delay }} />
+            <div className="mt-1 truncate text-[10px] font-medium text-muted-foreground">{label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="relative mt-3 space-y-1.5">
+        {activeSteps.map((s, idx) => {
+          const isLast = idx === activeSteps.length - 1;
+          return (
+            <div key={`${s.step}-${idx}`} className="flex items-center gap-2 text-[11px] text-muted-foreground">
+              <span className={cn(
+                "size-1.5 rounded-full",
+                isLast ? "bg-primary text-primary shadow-[0_0_10px_currentColor] animate-pulse" : "bg-success"
+              )} />
+              <span className={cn("truncate", isLast && "font-medium text-foreground")}>{s.message}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function MessageBubble({ message, isAdmin, onFeedback }: BubbleProps) {
   const isUser = message.role === "user";
   const cleanedContent = isUser ? message.content : removeDbTableMarker(message.content);
@@ -752,12 +824,7 @@ function MessageBubble({ message, isAdmin, onFeedback }: BubbleProps) {
             : "bg-muted text-foreground rounded-tl-sm"
         )}>
           {message.streaming && !message.content ? (
-            <span className="flex items-center gap-1.5">
-              {[0, 150, 300].map((d) => (
-                <span key={d} className="size-1.5 rounded-full bg-current animate-bounce"
-                  style={{ animationDelay: `${d}ms` }} />
-              ))}
-            </span>
+            <AgenticThinking steps={message.progress_steps} />
           ) : (
             parsedTable ? (
               <div className="space-y-1.5">
@@ -793,15 +860,8 @@ function MessageBubble({ message, isAdmin, onFeedback }: BubbleProps) {
             <span className="inline-block w-0.5 h-3.5 bg-current ml-0.5 animate-pulse align-middle" />
           )}
 
-          {message.streaming && (message.progress_steps?.length ?? 0) > 0 && (
-            <div className="mt-2 space-y-1.5 border-t border-border/40 pt-2">
-              {message.progress_steps?.map((s, idx) => (
-                <div key={`${s.step}-${idx}`} className="text-xs opacity-90 flex items-center gap-2">
-                  <span className="size-1.5 rounded-full bg-current/70" />
-                  <span>{s.message}</span>
-                </div>
-              ))}
-            </div>
+          {message.streaming && message.content && (message.progress_steps?.length ?? 0) > 0 && (
+            <AgenticThinking steps={message.progress_steps} compact />
           )}
 
           {!isUser && <AgenticTelemetry message={message} />}
