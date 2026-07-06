@@ -703,11 +703,14 @@ function AgenticThinking({
   steps,
   compact = false,
   onStop,
+  startedAt,
 }: {
   steps: UiMessage["progress_steps"];
   compact?: boolean;
   onStop?: () => void;
+  startedAt?: string;
 }) {
+  const [now, setNow] = useState(() => Date.now());
   const activeSteps = steps?.length ? steps : [{ step: "init", message: "Analyse de votre question..." }];
   const currentIndex = Math.min(Math.max(activeSteps.length - 1, 0), 4);
   const latest = activeSteps[activeSteps.length - 1]?.message ?? "Orchestration en cours...";
@@ -720,6 +723,18 @@ function AgenticThinking({
   ];
   const currentStep = responseSteps[currentIndex];
   const CurrentIcon = currentStep.icon;
+  const startedAtMs = startedAt ? new Date(startedAt).getTime() : Number.NaN;
+  const elapsedSeconds = Number.isFinite(startedAtMs)
+    ? Math.max(0, Math.floor((now - startedAtMs) / 1000))
+    : 0;
+  const elapsedLabel = elapsedSeconds < 60
+    ? `${elapsedSeconds}s`
+    : `${Math.floor(elapsedSeconds / 60)}m ${String(elapsedSeconds % 60).padStart(2, "0")}s`;
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   if (compact) {
     return (
@@ -733,6 +748,7 @@ function AgenticThinking({
             <div className="flex items-center gap-1.5 font-medium text-foreground">
               Assistant Agentique
               <Badge variant="secondary" className="h-4 rounded-full bg-primary/10 px-1.5 text-[9px] text-primary">Multi-agents</Badge>
+              <span className="text-[10px] font-normal text-muted-foreground">{elapsedLabel}</span>
             </div>
             <p className="truncate text-muted-foreground">{latest}</p>
           </div>
@@ -749,6 +765,9 @@ function AgenticThinking({
           <span className="size-1.5 rounded-full bg-primary" />
         </span>
         <span className="truncate text-base text-muted-foreground">{latest}</span>
+        <span className="shrink-0 rounded-full bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
+          {elapsedLabel}
+        </span>
         {onStop && (
           <button type="button" onClick={onStop} className="ml-auto rounded-full px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive">
             Arrêter
@@ -868,7 +887,7 @@ function MessageBubble({ message, isAdmin, onStop, onFeedback }: BubbleProps) {
               )
         )}>
           {message.streaming && !message.content ? (
-            <AgenticThinking steps={message.progress_steps} onStop={onStop} />
+            <AgenticThinking steps={message.progress_steps} onStop={onStop} startedAt={message.timestamp} />
           ) : (
             parsedTable ? (
               <div className="space-y-1.5">
@@ -905,7 +924,7 @@ function MessageBubble({ message, isAdmin, onStop, onFeedback }: BubbleProps) {
           )}
 
           {message.streaming && message.content && (message.progress_steps?.length ?? 0) > 0 && (
-            <AgenticThinking steps={message.progress_steps} compact />
+            <AgenticThinking steps={message.progress_steps} compact startedAt={message.timestamp} />
           )}
 
           {!isUser && <AgenticTelemetry message={message} />}
