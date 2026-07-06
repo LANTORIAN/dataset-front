@@ -5,9 +5,17 @@ import {
   BrainCircuit,
   ChevronDown,
   ChevronRight,
-  Send, Bot, User, Loader2, MessageSquare, Zap,
+  Send, Bot, User, Loader2, Zap,
   ShieldCheck,
   ThumbsUp, ThumbsDown, X,
+  AlertTriangle,
+  CheckCircle2,
+  Database,
+  FileSearch,
+  GitBranch,
+  Globe2,
+  Layers3,
+  ShoppingBag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,7 +48,20 @@ interface UiMessage extends ConversationMessage {
   feedback?: FeedbackRating;
   progress_steps?: Array<{ step: string; message: string }>;
   trace_events?: Array<{ kind: "reasoning" | "verify"; title: string; message: string }>;
+  selected_modules?: string[];
+  module_results?: Array<Record<string, unknown>>;
+  module_conflicts?: Array<Record<string, unknown>>;
+  module_warnings?: string[];
+  marketplace_plan?: Record<string, unknown>;
 }
+
+const AGENTIC_CAPABILITIES = [
+  { label: "RAG vectoriel", description: "fichiers indexés", icon: FileSearch },
+  { label: "SQL / DB", description: "preuves structurées", icon: Database },
+  { label: "Knowledge APIs", description: "sources externes", icon: Globe2 },
+  { label: "Planner", description: "orchestration", icon: GitBranch },
+  { label: "Marketplace", description: "actions recommandées", icon: ShoppingBag },
+];
 
 interface Props {
   project: Project | null;
@@ -181,6 +202,11 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
                     cached:        meta.cached,
                     response_time: meta.responseTime,
                     backend_id:    meta.messageId,
+                    selected_modules: meta.selectedModules,
+                    module_results: meta.moduleResults,
+                    module_conflicts: meta.moduleConflicts,
+                    module_warnings: meta.moduleWarnings,
+                    marketplace_plan: meta.marketplacePlan,
                     progress_steps: m.progress_steps ?? [],
                     trace_events: m.trace_events ?? [],
                   }
@@ -250,12 +276,53 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
     <div className="flex flex-col h-full">
       <ScrollArea ref={scrollRef} className="flex-1 p-4">
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full min-h-64 gap-3 text-muted-foreground">
-            <MessageSquare className="size-10" />
-            <p className="font-medium">Posez votre première question</p>
-            <p className="text-sm text-center max-w-sm">
-              L&apos;IA utilisera vos fichiers indexés pour répondre avec précision.
-            </p>
+          <div className="mx-auto flex h-full min-h-[32rem] max-w-4xl flex-col justify-center gap-6 px-2 py-8">
+            <div className="overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-background via-muted/35 to-primary/10 p-6 shadow-sm">
+              <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+                <div className="space-y-3">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                    <Layers3 className="size-3.5" /> Agentique multi-module
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-semibold tracking-tight text-foreground">
+                      Posez une question, l&apos;agent choisit les bons outils.
+                    </h3>
+                    <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                      Le moteur orchestre recherche vectorielle, base SQL, APIs externes, mémoire de suivi,
+                      validation des preuves et recommandations d&apos;actions selon votre demande.
+                    </p>
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-border/70 bg-background/70 p-3 text-xs text-muted-foreground shadow-sm">
+                  <div className="mb-2 flex items-center gap-2 font-medium text-foreground">
+                    <BrainCircuit className="size-4 text-primary" /> Pipeline visible
+                  </div>
+                  <p>Analyse → modules → preuves → réponse → actions.</p>
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                {AGENTIC_CAPABILITIES.map((item) => (
+                  <div key={item.label} className="rounded-2xl border border-border/70 bg-background/70 p-3 shadow-sm">
+                    <item.icon className="mb-2 size-4 text-primary" />
+                    <p className="text-sm font-medium text-foreground">{item.label}</p>
+                    <p className="text-xs text-muted-foreground">{item.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-2 text-sm text-muted-foreground md:grid-cols-3">
+              <button type="button" onClick={() => setInput("Combien avons-nous de conversations dans la base ?")} className="rounded-2xl border border-border bg-background p-3 text-left transition-colors hover:bg-accent">
+                <Database className="mb-2 size-4 text-primary" /> Interroger la base projet
+              </button>
+              <button type="button" onClick={() => setInput("Résume les fichiers indexés et propose les actions utiles.")} className="rounded-2xl border border-border bg-background p-3 text-left transition-colors hover:bg-accent">
+                <FileSearch className="mb-2 size-4 text-primary" /> Croiser documents et actions
+              </button>
+              <button type="button" onClick={() => setInput("Analyse cette demande avec toutes les sources disponibles.")} className="rounded-2xl border border-border bg-background p-3 text-left transition-colors hover:bg-accent">
+                <GitBranch className="mb-2 size-4 text-primary" /> Voir l&apos;orchestration
+              </button>
+            </div>
           </div>
         ) : (
           <div className="space-y-4 max-w-3xl mx-auto">
@@ -504,6 +571,132 @@ function confidenceBadgeClass(level: string | undefined): string {
   }
 }
 
+function moduleLabel(moduleId: string): string {
+  const labels: Record<string, string> = {
+    vector_search: "RAG vectoriel",
+    tfidf_fallback: "Recherche lexicale",
+    database_search: "Base SQL",
+    external_knowledge: "Knowledge API",
+    marketplace_planner: "Marketplace",
+  };
+  return labels[moduleId] ?? moduleId.replace(/_/g, " ");
+}
+
+function ModuleIcon({ moduleId, className }: { moduleId: string; className?: string }) {
+  const Icon = moduleId === "database_search"
+    ? Database
+    : moduleId === "external_knowledge"
+      ? Globe2
+      : moduleId === "marketplace_planner"
+        ? ShoppingBag
+        : moduleId === "vector_search" || moduleId === "tfidf_fallback"
+          ? FileSearch
+          : BrainCircuit;
+  return <Icon className={className} />;
+}
+
+function readString(obj: Record<string, unknown>, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = obj[key];
+    if (typeof value === "string" && value.trim()) return value;
+  }
+  return undefined;
+}
+
+function readNumber(obj: Record<string, unknown>, keys: string[]): number | undefined {
+  for (const key of keys) {
+    const value = obj[key];
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+  }
+  return undefined;
+}
+
+function marketplaceSummary(plan: Record<string, unknown> | undefined): string | null {
+  if (!plan || plan.needed === false) return null;
+  const actions = Array.isArray(plan.actions) ? plan.actions.length : 0;
+  const recommendations = Array.isArray(plan.recommendations) ? plan.recommendations.length : 0;
+  if (!actions && !recommendations && !plan.needed) return null;
+  return `${recommendations} recommandation(s), ${actions} action(s)`;
+}
+
+function AgenticTelemetry({ message }: { message: UiMessage }) {
+  const modules = message.selected_modules ?? [];
+  const results = message.module_results ?? [];
+  const conflicts = message.module_conflicts ?? [];
+  const warnings = message.module_warnings ?? [];
+  const market = marketplaceSummary(message.marketplace_plan);
+  const hasTelemetry = modules.length > 0 || results.length > 0 || conflicts.length > 0 || warnings.length > 0 || !!market;
+
+  if (!hasTelemetry) return null;
+
+  return (
+    <div className="mt-2 rounded-xl border border-border/50 bg-background/35 p-3 text-xs">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+          <Layers3 className="size-3.5 text-primary" /> Orchestration multi-module
+        </span>
+        {message.planned_intent && (
+          <Badge variant="outline" className="h-5 text-[10px]">intent {message.planned_intent}</Badge>
+        )}
+        {message.source_type && (
+          <Badge variant="secondary" className="h-5 text-[10px]">source {message.source_type}</Badge>
+        )}
+      </div>
+
+      {modules.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {modules.map((moduleId) => (
+            <Badge key={moduleId} variant="outline" className="h-6 gap-1.5 rounded-full bg-background/60 text-[11px]">
+              <ModuleIcon moduleId={moduleId} className="size-3" /> {moduleLabel(moduleId)}
+            </Badge>
+          ))}
+        </div>
+      )}
+
+      {results.length > 0 && (
+        <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+          {results.slice(0, 4).map((result, idx) => {
+            const id = readString(result, ["module_id", "module", "source", "id"]) ?? `module-${idx + 1}`;
+            const status = readString(result, ["status", "state"]) ?? "ok";
+            const count = readNumber(result, ["count", "contexts", "results_count", "items"]);
+            return (
+              <div key={`${id}-${idx}`} className="flex items-center justify-between rounded-lg border border-border/40 bg-background/45 px-2.5 py-2">
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <ModuleIcon moduleId={id} className="size-3.5 text-primary" />
+                  <span className="truncate">{moduleLabel(id)}</span>
+                </span>
+                <span className="flex items-center gap-1 text-muted-foreground">
+                  <CheckCircle2 className="size-3 text-success" /> {count ?? status}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {(warnings.length > 0 || conflicts.length > 0 || market) && (
+        <div className="mt-2 space-y-1.5">
+          {warnings.slice(0, 2).map((warning, idx) => (
+            <div key={`${warning}-${idx}`} className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 px-2.5 py-2 text-warning-foreground">
+              <AlertTriangle className="mt-0.5 size-3.5 shrink-0" /> <span>{warning}</span>
+            </div>
+          ))}
+          {conflicts.length > 0 && (
+            <div className="flex items-center gap-2 rounded-lg border border-destructive/25 bg-destructive/10 px-2.5 py-2 text-destructive">
+              <AlertTriangle className="size-3.5" /> {conflicts.length} conflit(s) de sources détecté(s)
+            </div>
+          )}
+          {market && (
+            <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/10 px-2.5 py-2 text-primary">
+              <ShoppingBag className="size-3.5" /> Marketplace activé : {market}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MessageBubble({ message, isAdmin, onFeedback }: BubbleProps) {
   const isUser = message.role === "user";
   const cleanedContent = isUser ? message.content : removeDbTableMarker(message.content);
@@ -610,6 +803,8 @@ function MessageBubble({ message, isAdmin, onFeedback }: BubbleProps) {
               ))}
             </div>
           )}
+
+          {!isUser && <AgenticTelemetry message={message} />}
 
           {!isUser && isAdmin && (message.trace_events?.length ?? 0) > 0 && (
             <div className="mt-2 border-t border-border/40 pt-2">

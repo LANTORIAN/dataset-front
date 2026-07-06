@@ -25,6 +25,11 @@ export interface StreamCallbacks {
     confidenceLevel?: string;
     cached?: boolean;
     responseTime?: number;
+    selectedModules?: string[];
+    moduleResults?: Array<Record<string, unknown>>;
+    moduleConflicts?: Array<Record<string, unknown>>;
+    moduleWarnings?: string[];
+    marketplacePlan?: Record<string, unknown>;
   }) => void;
   /** Appelé en cas d'erreur (réseau ou erreur renvoyée par le backend). */
   onError: (message: string) => void;
@@ -52,6 +57,11 @@ export function streamChat(
   let plannedIntent: string | undefined;
   let answerMode: string | undefined;
   let confidenceLevel: string | undefined;
+  let selectedModules: string[] | undefined;
+  let moduleResults: Array<Record<string, unknown>> | undefined;
+  let moduleConflicts: Array<Record<string, unknown>> | undefined;
+  let moduleWarnings: string[] | undefined;
+  let marketplacePlan: Record<string, unknown> | undefined;
 
   return createChatStream(opts, {
     onEvent: (eventName, data) => {
@@ -65,6 +75,21 @@ export function streamChat(
           plannedIntent = parsed.planned_intent as string | undefined;
           answerMode = parsed.answer_mode as string | undefined;
           confidenceLevel = parsed.confidence_level as string | undefined;
+          selectedModules = Array.isArray(parsed.selected_modules)
+            ? parsed.selected_modules.filter((m): m is string => typeof m === "string")
+            : undefined;
+          moduleResults = Array.isArray(parsed.module_results)
+            ? parsed.module_results.filter((m): m is Record<string, unknown> => !!m && typeof m === "object" && !Array.isArray(m))
+            : undefined;
+          moduleConflicts = Array.isArray(parsed.module_conflicts)
+            ? parsed.module_conflicts.filter((m): m is Record<string, unknown> => !!m && typeof m === "object" && !Array.isArray(m))
+            : undefined;
+          moduleWarnings = Array.isArray(parsed.module_warnings)
+            ? parsed.module_warnings.filter((m): m is string => typeof m === "string")
+            : undefined;
+          marketplacePlan = parsed.marketplace_plan && typeof parsed.marketplace_plan === "object" && !Array.isArray(parsed.marketplace_plan)
+            ? parsed.marketplace_plan as Record<string, unknown>
+            : undefined;
         } catch { /* ignore malformed meta */ }
         return;
       }
@@ -80,6 +105,11 @@ export function streamChat(
             plannedIntent,
             answerMode,
             confidenceLevel,
+            selectedModules,
+            moduleResults,
+            moduleConflicts,
+            moduleWarnings,
+            marketplacePlan,
             responseTime: typeof parsed.response_time_ms === "number"
               ? parsed.response_time_ms / 1000
               : undefined,
@@ -93,6 +123,11 @@ export function streamChat(
             plannedIntent,
             answerMode,
             confidenceLevel,
+            selectedModules,
+            moduleResults,
+            moduleConflicts,
+            moduleWarnings,
+            marketplacePlan,
           });
         }
         return;
