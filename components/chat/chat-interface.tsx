@@ -325,12 +325,13 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
             </div>
           </div>
         ) : (
-          <div className="space-y-4 max-w-3xl mx-auto">
+          <div className="mx-auto max-w-6xl space-y-4">
             {messages.map((msg) => (
               <MessageBubble
                 key={msg.id}
                 message={msg}
                 isAdmin={isAdmin}
+                onStop={stopStream}
                 onFeedback={(rating, comment, categories) => {
                   if (!msg.backend_id) return;
                   handleFeedback(msg.id, msg.backend_id, rating, comment, categories);
@@ -378,6 +379,7 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
 interface BubbleProps {
   message: UiMessage;
   isAdmin?: boolean;
+  onStop?: () => void;
   onFeedback: (rating: FeedbackRating, comment?: string, categories?: string[]) => void;
 }
 
@@ -697,83 +699,199 @@ function AgenticTelemetry({ message }: { message: UiMessage }) {
   );
 }
 
-function AgenticThinking({ steps, compact = false }: { steps: UiMessage["progress_steps"]; compact?: boolean }) {
-  const activeSteps = steps?.length ? steps.slice(-4) : [{ step: "init", message: "Initialisation du graphe agentique..." }];
+function AgenticThinking({
+  steps,
+  compact = false,
+  onStop,
+}: {
+  steps: UiMessage["progress_steps"];
+  compact?: boolean;
+  onStop?: () => void;
+}) {
+  const activeSteps = steps?.length ? steps : [{ step: "init", message: "Analyse de votre question..." }];
+  const currentIndex = Math.min(Math.max(activeSteps.length - 1, 0), 4);
   const latest = activeSteps[activeSteps.length - 1]?.message ?? "Orchestration en cours...";
-  const agents = [
-    { label: "Planner", icon: GitBranch, delay: "0ms" },
-    { label: "RAG", icon: FileSearch, delay: "180ms" },
-    { label: "SQL", icon: Database, delay: "360ms" },
-    { label: "Synthèse", icon: BrainCircuit, delay: "540ms" },
+  const responseSteps = [
+    { title: "Analyse de la question", short: "Analyse", icon: BrainCircuit },
+    { title: "Recherche & RAG", short: "RAG", icon: FileSearch },
+    { title: "Génération SQL", short: "SQL", icon: Database },
+    { title: "Synthèse", short: "Synthèse", icon: Layers3 },
+    { title: "Réponse finale", short: "Réponse", icon: CheckCircle2 },
   ];
+  const agents = [
+    { name: "Analyseur", detail: "Comprend votre question", icon: BrainCircuit },
+    { name: "Chercheur (RAG)", detail: "Recherche les informations", icon: FileSearch },
+    { name: "Générateur SQL", detail: "Construit la requête SQL", icon: GitBranch },
+    { name: "Exécuteur SQL", detail: "Exécute la requête", icon: Database },
+    { name: "Synthétiseur", detail: "Rédige la réponse finale", icon: SparkAgentIcon },
+  ];
+  const currentStep = responseSteps[currentIndex];
+  const CurrentIcon = currentStep.icon;
+
+  if (compact) {
+    return (
+      <div className="mt-2 rounded-xl border border-primary/15 bg-background/55 p-2.5 text-xs shadow-sm">
+        <div className="flex items-center gap-2">
+          <span className="relative flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <span className="absolute inset-0 rounded-lg border border-primary/25 animate-ping" />
+            <CurrentIcon className="relative size-3.5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 font-medium text-foreground">
+              Assistant Agentique
+              <Badge variant="secondary" className="h-4 rounded-full bg-primary/10 px-1.5 text-[9px] text-primary">Multi-agents</Badge>
+            </div>
+            <p className="truncate text-muted-foreground">{latest}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className={cn(
-      "relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-background/70 to-info/10 shadow-sm",
-      compact ? "mt-2 p-2.5" : "min-w-[270px] p-3"
-    )}>
-      <div className="pointer-events-none absolute -left-8 -top-8 size-28 rounded-full bg-primary/15 blur-2xl" />
-      <div className="pointer-events-none absolute -bottom-10 right-4 size-24 rounded-full bg-info/15 blur-2xl" />
-      <div className="pointer-events-none absolute -right-8 -top-8 size-24 rounded-full border border-primary/20 animate-ping" />
+    <div className="relative w-full overflow-hidden rounded-3xl border border-border/70 bg-background/95 p-4 shadow-[0_18px_60px_rgba(15,23,42,0.08)] sm:p-5">
+      <div className="pointer-events-none absolute -left-16 -top-16 size-48 rounded-full bg-primary/10 blur-3xl" />
+      <div className="pointer-events-none absolute -right-16 top-8 size-56 rounded-full bg-info/10 blur-3xl" />
 
-      <div className="relative flex items-center gap-3">
-        <div className="relative flex size-12 shrink-0 items-center justify-center">
-          <div className="absolute inset-0 rounded-full border border-primary/30" />
-          <div className="absolute inset-1 rounded-full border border-dashed border-primary/45 animate-spin [animation-duration:3.8s]" />
-          <div className="absolute inset-3 rounded-full bg-primary/20 blur-sm animate-pulse" />
-          <BrainCircuit className="relative size-5 text-primary" />
-          {["left-0 top-2", "right-0 top-1", "bottom-1 left-2", "bottom-2 right-1"].map((pos, idx) => (
-            <span
-              key={pos}
-              className={cn("absolute size-1.5 rounded-full bg-primary text-primary shadow-[0_0_10px_currentColor] animate-pulse", pos)}
-              style={{ animationDelay: `${idx * 160}ms` }}
-            />
-          ))}
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Badge variant="secondary" className="h-5 gap-1 rounded-full border border-primary/20 bg-primary/10 text-[10px] text-primary">
-              <Zap className="size-2.5" /> Mode agentique
-            </Badge>
-            <span className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">multi-agents</span>
+      <div className="relative flex flex-col gap-3 border-b border-border/60 pb-4 md:flex-row md:items-start md:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-lg font-semibold tracking-tight text-foreground">Assistant Agentique</h3>
+            <Badge className="rounded-full bg-primary/10 px-3 text-[11px] text-primary hover:bg-primary/10">Multi-agents</Badge>
           </div>
-          <p className="mt-1 truncate text-xs font-medium text-foreground">{latest}</p>
+          <p className="mt-1 text-sm text-muted-foreground">Réponse en cours de génération...</p>
+        </div>
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" size="sm" className="gap-2 rounded-xl bg-background/80">
+            <GitBranch className="size-3.5" /> Voir l&apos;historique
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={onStop} className="gap-2 rounded-xl border-destructive/45 bg-destructive/5 text-destructive hover:bg-destructive/10 hover:text-destructive">
+            <span className="size-2.5 rounded-full bg-destructive shadow-[0_0_12px_currentColor]" /> Arrêter
+          </Button>
         </div>
       </div>
 
-      <div className="relative mt-3 grid grid-cols-4 gap-1.5">
-        {agents.map(({ label, icon: Icon, delay }) => (
-          <div key={label} className="rounded-xl border border-border/35 bg-background/45 px-2 py-2 text-center backdrop-blur">
-            <Icon className="mx-auto size-3.5 text-primary animate-pulse" style={{ animationDelay: delay }} />
-            <div className="mt-1 truncate text-[10px] font-medium text-muted-foreground">{label}</div>
-          </div>
-        ))}
-      </div>
-
-      <div className="relative mt-3 space-y-1.5">
-        {activeSteps.map((s, idx) => {
-          const isLast = idx === activeSteps.length - 1;
-          return (
-            <div key={`${s.step}-${idx}`} className="flex items-center gap-2 text-[11px] text-muted-foreground">
-              <span className={cn(
-                "size-1.5 rounded-full",
-                isLast ? "bg-primary text-primary shadow-[0_0_10px_currentColor] animate-pulse" : "bg-success"
-              )} />
-              <span className={cn("truncate", isLast && "font-medium text-foreground")}>{s.message}</span>
+      <div className="relative mt-4 grid gap-4 lg:grid-cols-[1fr_350px]">
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-border/70 bg-card/70 p-4 shadow-sm">
+            <div className="mb-5 flex items-center justify-between gap-3">
+              <h4 className="text-sm font-semibold text-foreground">Progression de la réponse</h4>
+              <Badge variant="secondary" className="gap-1 rounded-lg bg-primary/10 text-primary">
+                <Zap className="size-3" /> Temps estimé : ~12s
+              </Badge>
             </div>
-          );
-        })}
+            <div className="grid grid-cols-5 gap-2">
+              {responseSteps.map((step, idx) => {
+                const StepIcon = step.icon;
+                const done = idx < currentIndex;
+                const active = idx === currentIndex;
+                return (
+                  <div key={step.title} className="relative flex flex-col items-center text-center">
+                    {idx < responseSteps.length - 1 && (
+                      <span className={cn(
+                        "absolute left-[calc(50%+22px)] top-5 hidden h-0.5 w-[calc(100%-28px)] sm:block",
+                        done ? "bg-primary" : "bg-border"
+                      )} />
+                    )}
+                    <span className={cn(
+                      "relative z-10 flex size-10 items-center justify-center rounded-full border text-sm font-semibold transition-all",
+                      done && "border-primary bg-primary text-primary-foreground shadow-sm",
+                      active && "border-primary bg-primary/15 text-primary ring-8 ring-primary/10",
+                      !done && !active && "border-border bg-muted text-muted-foreground"
+                    )}>
+                      {done ? <CheckCircle2 className="size-4" /> : active ? idx + 1 : <StepIcon className="size-4" />}
+                    </span>
+                    <p className="mt-3 text-[11px] font-semibold leading-tight text-foreground sm:text-xs">{step.title}</p>
+                    <p className={cn("mt-1 text-[10px]", done ? "text-success" : active ? "text-primary" : "text-muted-foreground")}>{done ? "Terminé" : active ? "En cours" : "En attente"}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-border/70 bg-card/70 p-4 shadow-sm">
+            <div className="mb-4 flex items-center gap-2 text-primary">
+              <span className="flex size-7 items-center justify-center rounded-lg bg-primary/10"><CurrentIcon className="size-4" /></span>
+              <span className="text-sm font-semibold">Étape en cours</span>
+            </div>
+            <h4 className="text-lg font-semibold tracking-tight text-foreground">{currentStep.title}</h4>
+            <p className="mt-1 text-sm text-muted-foreground">{latest}</p>
+
+            <div className="mt-4 overflow-hidden rounded-xl border border-border/70">
+              {activeSteps.slice(-3).map((s, idx) => (
+                <div key={`${s.step}-${idx}`} className="flex items-center justify-between gap-3 border-b border-border/60 px-3 py-3 last:border-b-0">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className={cn("size-4 rounded-full border-2", idx === activeSteps.slice(-3).length - 1 ? "border-primary border-t-transparent animate-spin" : "border-success bg-success/10")} />
+                    <span className="truncate text-sm text-foreground">{s.message}</span>
+                  </div>
+                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 flex items-start gap-2 rounded-xl bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+              <ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-primary" />
+              <span><span className="font-medium text-foreground">Pourquoi ces étapes ?</span> Chaque agent spécialisé contribue à une réponse plus précise et fiable.</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-border/70 bg-card/70 p-4 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <h4 className="text-sm font-semibold text-foreground">Agents impliqués</h4>
+              <span className="text-xs font-medium text-primary">5 agents</span>
+            </div>
+            <div className="space-y-2">
+              {agents.map((agent, idx) => {
+                const AgentIcon = agent.icon;
+                const done = idx < currentIndex;
+                const active = idx === currentIndex;
+                return (
+                  <div key={agent.name} className={cn(
+                    "flex items-center gap-3 rounded-xl border px-3 py-3 transition-all",
+                    active ? "border-primary/25 bg-primary/5 shadow-sm" : "border-border/70 bg-background/60"
+                  )}>
+                    <span className={cn("flex size-9 items-center justify-center rounded-full", done ? "bg-success/10 text-success" : active ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground")}>
+                      <AgentIcon className={cn("size-4", active && "animate-pulse")} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-foreground">{agent.name}</p>
+                      <p className="truncate text-xs text-muted-foreground">{agent.detail}</p>
+                    </div>
+                    <span className={cn("text-[10px] font-medium", done ? "text-success" : active ? "text-primary" : "text-muted-foreground")}>{done ? "Terminé" : active ? "En cours" : "En attente"}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-border/70 bg-card/70 p-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              <span className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary"><ShieldCheck className="size-4" /></span>
+              <div>
+                <h4 className="text-sm font-semibold text-foreground">Transparence & confiance</h4>
+                <p className="mt-1 text-xs text-muted-foreground">Suivez le travail de chaque agent en temps réel.</p>
+                <button type="button" className="mt-3 text-xs font-medium text-primary hover:underline">En savoir plus</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-function MessageBubble({ message, isAdmin, onFeedback }: BubbleProps) {
+function SparkAgentIcon({ className }: { className?: string }) {
+  return <BrainCircuit className={className} />;
+}
+
+function MessageBubble({ message, isAdmin, onStop, onFeedback }: BubbleProps) {
   const isUser = message.role === "user";
   const cleanedContent = isUser ? message.content : removeDbTableMarker(message.content);
   const isAsciiTable = !isUser && cleanedContent.includes("Table ") && cleanedContent.includes("+-") && cleanedContent.includes("| ");
   const parsedTable = !isUser ? parseAssistantTable(message.content) : null;
+  const showAgenticPanel = !isUser && message.streaming && !message.content;
   const [showComment, setShowComment]   = useState(false);
   const [comment, setComment]           = useState("");
   const [selectedCats, setSelectedCats] = useState<string[]>([]);
@@ -815,16 +933,25 @@ function MessageBubble({ message, isAdmin, onFeedback }: BubbleProps) {
         {isUser ? <User className="size-3.5" /> : <Bot className="size-3.5 text-muted-foreground" />}
       </div>
 
-      <div className={cn("max-w-[80%] space-y-1", isUser && "items-end flex flex-col")}>
+      <div className={cn(
+        "space-y-1",
+        showAgenticPanel ? "min-w-0 flex-1" : "max-w-[80%]",
+        isUser && "flex flex-col items-end"
+      )}>
         {/* Bubble */}
         <div className={cn(
-          "rounded-2xl px-4 py-2.5 text-sm",
-          isUser
-            ? "bg-primary text-primary-foreground rounded-tr-sm"
-            : "bg-muted text-foreground rounded-tl-sm"
+          "text-sm",
+          showAgenticPanel
+            ? "rounded-none bg-transparent p-0 text-foreground"
+            : cn(
+                "rounded-2xl px-4 py-2.5",
+                isUser
+                  ? "bg-primary text-primary-foreground rounded-tr-sm"
+                  : "bg-muted text-foreground rounded-tl-sm"
+              )
         )}>
           {message.streaming && !message.content ? (
-            <AgenticThinking steps={message.progress_steps} />
+            <AgenticThinking steps={message.progress_steps} onStop={onStop} />
           ) : (
             parsedTable ? (
               <div className="space-y-1.5">
