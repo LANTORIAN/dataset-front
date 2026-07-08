@@ -52,7 +52,7 @@ export function ConversationsSidebar({
   const resolvedProjectId = selectedProject?.id ?? null;
 
   const load = (p = page) => {
-    if (!selectedProject) { setConversations([]); return; }
+    if (!selectedProject || !apiKey) { setConversations([]); return; }
     setLoading(true);
     conversationsService.list(apiKey, p, PAGE_SIZE).then((r) => {
       if (r.ok) {
@@ -76,18 +76,19 @@ export function ConversationsSidebar({
   // or when a new conversation is created
   useEffect(() => {
     if (!resolvedProjectId) { setConversations([]); return; }
+    if (!apiKey) return;
     setPage(1);
     setSearch("");
     load(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolvedProjectId, refreshTrigger]);
+  }, [resolvedProjectId, refreshTrigger, apiKey]);
 
   // Fire when page changes (pagination click)
   useEffect(() => {
-    if (!resolvedProjectId) return;
+    if (!resolvedProjectId || !apiKey) return;
     load(page);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  }, [page, resolvedProjectId, apiKey]);
 
   // Client-side search filter (backend doesn't expose conversation search)
   const filtered = debouncedSearch
@@ -127,7 +128,7 @@ export function ConversationsSidebar({
           size="sm" variant="outline"
           className="w-full gap-2 text-xs h-8"
           onClick={onNewConversation}
-          disabled={!selectedProjectId}
+          disabled={!selectedProjectId || !apiKey}
         >
           <Plus className="size-3" />Nouvelle conversation
         </Button>

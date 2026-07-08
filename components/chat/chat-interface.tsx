@@ -104,6 +104,7 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
       }, 0);
       return () => window.clearTimeout(timer);
     }
+    if (!apiKey) return;
     conversationsService.messages(conversationId, apiKey).then((r) => {
       if (r.ok) {
         // For history messages, id IS the real backend message id
@@ -118,7 +119,7 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
   }, [messages]);
 
   const sendMessage = async () => {
-    if (!input.trim() || !project || isStreaming) return;
+    if (!input.trim() || !project || !apiKey || isStreaming) return;
 
     let convId = activeConvId;
 

@@ -18,11 +18,14 @@ export function ChatPage() {
   const defaultConvId    = searchParams.get("conversation") ?? undefined;
 
   const [projects, setProjects]               = useState<Project[]>([]);
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState(defaultProjectId);
-  const [resolvedApiKey, setResolvedApiKey]   = useState("");
+  const [resolvedProjectKey, setResolvedProjectKey] = useState({ projectId: "", apiKey: "" });
   const [activeConversationId, setActiveConversationId] = useState<string | undefined>(defaultConvId);
   const [convRefreshKey, setConvRefreshKey]   = useState(0);
+  const selectedProject = projects.find((p) => p.id === selectedProjectId) ?? null;
+  const resolvedApiKey = resolvedProjectKey.projectId === selectedProjectId
+    ? resolvedProjectKey.apiKey
+    : "";
 
   // Keep URL in sync with project + conversation selection
   const syncUrl = useCallback((projectId: string, convId?: string) => {
@@ -38,23 +41,28 @@ export function ChatPage() {
     projectsService.list({ limit: 100 }).then((r) => {
       if (r.ok) {
         setProjects(r.data.projects);
-        if (defaultProjectId) {
-          const found = r.data.projects.find((p) => p.id === defaultProjectId);
-          if (found) setSelectedProject(found);
-        }
       }
     });
   }, [defaultProjectId]);
 
   // When project selection changes, update selectedProject and reveal its API key
   useEffect(() => {
-    if (!selectedProjectId) { setSelectedProject(null); setResolvedApiKey(""); return; } // eslint-disable-line react-hooks/set-state-in-effect
-    const found = projects.find((p) => p.id === selectedProjectId);
-    if (found) setSelectedProject(found);
+    let cancelled = false;
+
+    if (!selectedProjectId || !selectedProject) {
+      return;
+    }
+
     projectsService.revealKey(selectedProjectId).then((r) => {
-      if (r.ok) setResolvedApiKey(r.data.api_key);
+      if (!cancelled && r.ok) {
+        setResolvedProjectKey({ projectId: selectedProjectId, apiKey: r.data.api_key });
+      }
     });
-  }, [selectedProjectId, projects]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedProjectId, selectedProject]);
 
   const handleSelectProject = useCallback((id: string) => {
     setSelectedProjectId(id);
