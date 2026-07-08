@@ -27,7 +27,12 @@ import { conversationsService } from "@/services/conversations.service";
 import { feedbackService, NEGATIVE_CATEGORIES } from "@/services/feedback.service";
 import type { FeedbackRating } from "@/services/feedback.service";
 import { toast } from "sonner";
-import type { Project, ConversationMessage } from "@/types";
+import type {
+  Project,
+  ConversationMessage,
+  NLUResult,
+  RecoveryMetadata,
+} from "@/types";
 import { useAuth } from "@/lib/context/auth-context";
 import { MindLogo } from "@/components/branding/mind-logo";
 
@@ -40,6 +45,7 @@ interface UiMessage extends ConversationMessage {
   planned_intent?: string;
   answer_mode?: string;
   confidence_level?: string;
+  nlu?: NLUResult;
   cached?: boolean;
   response_time?: number;
   /** Real backend message ID (from SSE meta event or loaded from history). */
@@ -53,6 +59,9 @@ interface UiMessage extends ConversationMessage {
   module_conflicts?: Array<Record<string, unknown>>;
   module_warnings?: string[];
   marketplace_plan?: Record<string, unknown>;
+  recovery_used?: boolean;
+  recovery_reason?: string;
+  recovery_actions?: string[];
 }
 
 const AGENTIC_CAPABILITIES = [
@@ -199,6 +208,7 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
                     planned_intent: meta.plannedIntent,
                     answer_mode:   meta.answerMode,
                     confidence_level: meta.confidenceLevel,
+                    nlu:          meta.nlu,
                     cached:        meta.cached,
                     response_time: meta.responseTime,
                     backend_id:    meta.messageId,
@@ -207,6 +217,9 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
                     module_conflicts: meta.moduleConflicts,
                     module_warnings: meta.moduleWarnings,
                     marketplace_plan: meta.marketplacePlan,
+                    recovery_used: meta.recoveryUsed,
+                    recovery_reason: meta.recoveryReason,
+                    recovery_actions: meta.recoveryActions,
                     progress_steps: m.progress_steps ?? [],
                     trace_events: m.trace_events ?? [],
                   }
@@ -621,13 +634,39 @@ function marketplaceSummary(plan: Record<string, unknown> | undefined): string |
   return `${recommendations} recommandation(s), ${actions} action(s)`;
 }
 
+function formatReasonCode(reason: string | undefined): string | null {
+  if (!reason) return null;
+  const value = reason.trim();
+  if (!value) return null;
+  return value.replace(/_/g, " ");
+}
+
+function buildRecoveryMeta(message: UiMessage): RecoveryMetadata | null {
+  if (!message.recovery_used) return null;
+  return {
+    used: true,
+    reason: message.recovery_reason ?? "",
+    actions: message.recovery_actions ?? [],
+  };
+}
+
 function AgenticTelemetry({ message }: { message: UiMessage }) {
   const modules = message.selected_modules ?? [];
   const results = message.module_results ?? [];
   const conflicts = message.module_conflicts ?? [];
   const warnings = message.module_warnings ?? [];
   const market = marketplaceSummary(message.marketplace_plan);
-  const hasTelemetry = modules.length > 0 || results.length > 0 || conflicts.length > 0 || warnings.length > 0 || !!market;
+  const nlu = message.nlu;
+  const recovery = buildRecoveryMeta(message);
+  const recoveryReason = formatReasonCode(recovery?.reason);
+  const hasTelemetry =
+    modules.length > 0 ||
+    results.length > 0 ||
+    conflicts.length > 0 ||
+    warnings.length > 0 ||
+    !!market ||
+    !!nlu ||
+    !!recovery;
 
   if (!hasTelemetry) return null;
 
@@ -643,7 +682,39 @@ function AgenticTelemetry({ message }: { message: UiMessage }) {
         {message.source_type && (
           <Badge variant="secondary" className="h-5 text-[10px]">source {message.source_type}</Badge>
         )}
+        {nlu?.route_hint && (
+          <Badge variant="outline" className="h-5 text-[10px]">NLU {nlu.route_hint}</Badge>
+        )}
+        {nlu?.latency_ms !== undefined && (
+          <Badge variant="outline" className="h-5 text-[10px]">{nlu.latency_ms.toFixed(1)}ms</Badge>
+        )}
+        {recoveryReason && (
+          <Badge variant="outline" className="h-5 border-warning/40 bg-warning/10 text-[10px] text-warning-foreground">
+            recovery {recoveryReason}
+          </Badge>
+        )}
       </div>
+
+      {nlu && (
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          <Badge variant="outline" className="h-6 rounded-full bg-background/60 text-[11px]">
+            intent {nlu.primary_intent} · {Math.round(nlu.confidence * 100)}%
+          </Badge>
+          <Badge variant="outline" className="h-6 rounded-full bg-background/60 text-[11px]">
+            langue {nlu.language}
+          </Badge>
+          {nlu.requires_context && (
+            <Badge variant="outline" className="h-6 rounded-full bg-background/60 text-[11px]">
+              contexte requis
+            </Badge>
+          )}
+          {nlu.recommended_sources.map((source) => (
+            <Badge key={source} variant="outline" className="h-6 rounded-full bg-background/60 text-[11px]">
+              <ModuleIcon moduleId={source} className="size-3" /> {moduleLabel(source)}
+            </Badge>
+          ))}
+        </div>
+      )}
 
       {modules.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
@@ -673,6 +744,34 @@ function AgenticTelemetry({ message }: { message: UiMessage }) {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {recovery && (
+        <div className="mt-2 space-y-1.5">
+          <div className="rounded-lg border border-warning/30 bg-warning/10 px-2.5 py-2 text-warning-foreground">
+            <div className="flex items-center gap-2 font-medium">
+              <AlertTriangle className="size-3.5 shrink-0" /> Recovery actif
+            </div>
+            {recoveryReason && (
+              <div className="mt-1 text-[11px] opacity-90">
+                Cause: <span className="font-mono">{recoveryReason}</span>
+              </div>
+            )}
+          </div>
+          {recovery.actions.length > 0 && (
+            <div className="rounded-lg border border-border/40 bg-background/45 px-2.5 py-2 text-[11px] text-muted-foreground">
+              <div className="mb-1 font-medium text-foreground">Actions proposées</div>
+              <div className="space-y-1">
+                {recovery.actions.slice(0, 3).map((action) => (
+                  <div key={action} className="flex items-start gap-2">
+                    <ChevronRight className="mt-0.5 size-3 shrink-0 text-primary" />
+                    <span>{action}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -991,6 +1090,16 @@ function MessageBubble({ message, isAdmin, onStop, onFeedback }: BubbleProps) {
             {isAdmin && message.planned_intent && (
               <Badge variant="outline" className="text-xs h-4">
                 intent {message.planned_intent}
+              </Badge>
+            )}
+            {isAdmin && message.nlu?.route_hint && (
+              <Badge variant="outline" className="text-xs h-4">
+                nlu {message.nlu.route_hint}
+              </Badge>
+            )}
+            {isAdmin && message.recovery_used && message.recovery_reason && (
+              <Badge variant="outline" className="text-xs h-4 border-warning/40 bg-warning/10 text-warning-foreground">
+                recovery {formatReasonCode(message.recovery_reason)}
               </Badge>
             )}
             {isAdmin && message.answer_mode && (

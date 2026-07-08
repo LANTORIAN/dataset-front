@@ -79,10 +79,10 @@ export function ProjectDetailPage({ projectId }: Props) {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [projectId]); // eslint-disable-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
 
   // Reset page when filter/search changes
-  useEffect(() => { setPage(1); }, [debouncedSearch, status]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, status]); // eslint-disable-line react-hooks/set-state-in-effect
 
   const filtered = useMemo(() => {
     let result = files;

@@ -217,9 +217,9 @@ export function AdminPage() {
     }).finally(() => setLoadingPending(false));
   };
 
-  useEffect(() => { setPage(1); }, [debouncedSearch, roleFilter, approvedFilter]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { loadAll(); }, [page, debouncedSearch, roleFilter, approvedFilter]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { loadPending(); }, [pendingPage]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setPage(1); }, [debouncedSearch, roleFilter, approvedFilter]); // eslint-disable-line react-hooks/set-state-in-effect
+  useEffect(() => { loadAll(); }, [page, debouncedSearch, roleFilter, approvedFilter]); // eslint-disable-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
+  useEffect(() => { loadPending(); }, [pendingPage]); // eslint-disable-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
 
   // ── Handlers ────────────────────────────────────────────────────────────
 

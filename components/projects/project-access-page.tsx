@@ -30,7 +30,7 @@ export function ProjectAccessPage() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

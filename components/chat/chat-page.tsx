@@ -48,7 +48,7 @@ export function ChatPage() {
 
   // When project selection changes, update selectedProject and reveal its API key
   useEffect(() => {
-    if (!selectedProjectId) { setSelectedProject(null); setResolvedApiKey(""); return; }
+    if (!selectedProjectId) { setSelectedProject(null); setResolvedApiKey(""); return; } // eslint-disable-line react-hooks/set-state-in-effect
     const found = projects.find((p) => p.id === selectedProjectId);
     if (found) setSelectedProject(found);
     projectsService.revealKey(selectedProjectId).then((r) => {

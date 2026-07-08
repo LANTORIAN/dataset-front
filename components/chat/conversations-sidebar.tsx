@@ -87,7 +87,7 @@ export function ConversationsSidebar({
     if (!resolvedProjectId) return;
     load(page);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [page]);
 
   // Client-side search filter (backend doesn't expose conversation search)
   const filtered = debouncedSearch

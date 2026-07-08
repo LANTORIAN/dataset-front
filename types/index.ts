@@ -215,12 +215,34 @@ export interface ConversationListResponse {
 // Chat
 // ────────────────────────────────────────────────────────────────────────────
 
+export interface NLUResult {
+  primary_intent: string;
+  confidence: number;
+  should_use_llm: boolean;
+  cached_response?: string | null;
+  language: string;
+  route_hint: string;
+  recommended_sources: string[];
+  entities: Record<string, unknown>;
+  requires_context: boolean;
+  cacheable: boolean;
+  latency_ms: number;
+}
+
+export interface RecoveryMetadata {
+  used: boolean;
+  reason: string;
+  actions: string[];
+}
+
 export interface ChatStreamChunk {
   content?: string;
   done?: boolean;
   error?: string;
   conversation_id?: string;
   source_type?: string;
+  nlu?: NLUResult;
+  recovery?: RecoveryMetadata;
   cached?: boolean;
   response_time?: number;
 }
@@ -514,6 +536,18 @@ export interface FailedQuery {
   count: number;
   last_occurred: string;
   sample_context?: string;
+}
+
+export interface ConversationIssues {
+  total_user_messages: number;
+  unresolved_messages: number;
+  unanswered_messages: number;
+  uncertain_responses: number;
+  negative_feedbacks: number;
+  unresolved_rate: number;
+  avg_response_time_ms: number;
+  p95_response_time_ms: number;
+  recent_errors: FailedQuery[];
 }
 
 export interface SatisfactionStats {

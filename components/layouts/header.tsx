@@ -26,7 +26,7 @@ export function Header({ onToggleSidebar, title }: HeaderProps) {
   const { theme, setTheme } = useTheme();
   const { user, logout, isAdmin } = useAuth();
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  useEffect(() => setMounted(true), []); // eslint-disable-line react-hooks/set-state-in-effect
 
   const initials = (user?.display_name ?? user?.username ?? "?")
     .split(" ")

@@ -75,19 +75,19 @@ export function ProjectConfigForm({ project, onSaved }: Props) {
           <CardTitle className="text-sm flex items-center gap-2">
             <Bot className="size-4" />Assistant IA
           </CardTitle>
-          <CardDescription className="text-xs">Identité et comportement de l'assistant.</CardDescription>
+          <CardDescription className="text-xs">Identité et comportement de l&apos;assistant.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label className="text-xs">Nom de l'assistant</Label>
+            <Label className="text-xs">Nom de l&apos;assistant</Label>
             <Input value={assistantName} onChange={(e) => setAssistantName(e.target.value)} className="h-8 text-sm" placeholder="Assistant" />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Nom de l'entreprise</Label>
+            <Label className="text-xs">Nom de l&apos;entreprise</Label>
             <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="h-8 text-sm" placeholder="Company" />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Rôle de l'assistant</Label>
+            <Label className="text-xs">Rôle de l&apos;assistant</Label>
             <Input value={assistantRole} onChange={(e) => setAssistantRole(e.target.value)} className="h-8 text-sm" placeholder="assistant" />
           </div>
           <div className="space-y-1.5">

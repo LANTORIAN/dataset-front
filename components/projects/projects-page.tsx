@@ -56,11 +56,11 @@ export function ProjectsPage() {
   const debouncedSearch = useDebounce(search, 400);
 
   // Reset to page 1 when filters/search change (not when page or refreshKey change)
-  useEffect(() => { setPage(1); }, [debouncedSearch, sortBy, order]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, sortBy, order]); // eslint-disable-line react-hooks/set-state-in-effect
 
   // Single load effect
   useEffect(() => {
-    setLoading(true);
+    setLoading(true); // eslint-disable-line react-hooks/set-state-in-effect
     projectsService.list({
       page,
       limit: PAGE_SIZE,
@@ -74,7 +74,6 @@ export function ProjectsPage() {
         setTotal(result.data.pagination.total);
       }
     }).finally(() => setLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, debouncedSearch, sortBy, order, refreshKey]);
 
   const visibleProjects = statusFilter === "all"

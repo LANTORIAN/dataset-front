@@ -7,7 +7,7 @@
 
 import { createChatStream } from "@/lib/api/client";
 import type { StreamOptions } from "@/lib/api/client";
-import type { ChatStreamChunk } from "@/types";
+import type { ChatStreamChunk, NLUResult, RecoveryMetadata } from "@/types";
 
 // ── Callbacks ──────────────────────────────────────────────────────────────
 
@@ -25,6 +25,10 @@ export interface StreamCallbacks {
     confidenceLevel?: string;
     cached?: boolean;
     responseTime?: number;
+    nlu?: NLUResult;
+    recoveryUsed?: boolean;
+    recoveryReason?: string;
+    recoveryActions?: string[];
     selectedModules?: string[];
     moduleResults?: Array<Record<string, unknown>>;
     moduleConflicts?: Array<Record<string, unknown>>;
@@ -57,6 +61,8 @@ export function streamChat(
   let plannedIntent: string | undefined;
   let answerMode: string | undefined;
   let confidenceLevel: string | undefined;
+  let nlu: NLUResult | undefined;
+  let recovery: RecoveryMetadata | undefined;
   let selectedModules: string[] | undefined;
   let moduleResults: Array<Record<string, unknown>> | undefined;
   let moduleConflicts: Array<Record<string, unknown>> | undefined;
@@ -75,6 +81,8 @@ export function streamChat(
           plannedIntent = parsed.planned_intent as string | undefined;
           answerMode = parsed.answer_mode as string | undefined;
           confidenceLevel = parsed.confidence_level as string | undefined;
+          nlu = isNLUResult(parsed.nlu) ? parsed.nlu : undefined;
+          recovery = parseRecovery(parsed);
           selectedModules = Array.isArray(parsed.selected_modules)
             ? parsed.selected_modules.filter((m): m is string => typeof m === "string")
             : undefined;
@@ -105,6 +113,10 @@ export function streamChat(
             plannedIntent,
             answerMode,
             confidenceLevel,
+            nlu,
+            recoveryUsed: recovery?.used,
+            recoveryReason: recovery?.reason,
+            recoveryActions: recovery?.actions,
             selectedModules,
             moduleResults,
             moduleConflicts,
@@ -123,6 +135,10 @@ export function streamChat(
             plannedIntent,
             answerMode,
             confidenceLevel,
+            nlu,
+            recoveryUsed: recovery?.used,
+            recoveryReason: recovery?.reason,
+            recoveryActions: recovery?.actions,
             selectedModules,
             moduleResults,
             moduleConflicts,
@@ -180,6 +196,38 @@ export function streamChat(
       callbacks.onError("Connexion perdue. Vérifiez votre réseau ou la clé API.");
     },
   });
+}
+
+function parseRecovery(parsed: Record<string, unknown>): RecoveryMetadata | undefined {
+  const used = parsed.recovery_used;
+  const reason = parsed.recovery_reason;
+  const actions = parsed.recovery_actions;
+
+  if (typeof used !== "boolean") return undefined;
+
+  return {
+    used,
+    reason: typeof reason === "string" ? reason : "",
+    actions: Array.isArray(actions)
+      ? actions.filter((item): item is string => typeof item === "string")
+      : [],
+  };
+}
+
+function isNLUResult(value: unknown): value is NLUResult {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.primary_intent === "string" &&
+    typeof candidate.confidence === "number" &&
+    typeof candidate.should_use_llm === "boolean" &&
+    typeof candidate.language === "string" &&
+    typeof candidate.route_hint === "string" &&
+    Array.isArray(candidate.recommended_sources) &&
+    typeof candidate.requires_context === "boolean" &&
+    typeof candidate.cacheable === "boolean" &&
+    typeof candidate.latency_ms === "number"
+  );
 }
 
 // ── Version Promise (accumulation complète) ────────────────────────────────

@@ -159,7 +159,7 @@ export function ProjectDatabaseTab({ projectId }: Props) {
   };
 
   useEffect(() => {
-    load();
+    load(); // eslint-disable-line react-hooks/set-state-in-effect
   }, [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const canEnable = useMemo(

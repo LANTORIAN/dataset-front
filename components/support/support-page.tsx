@@ -72,7 +72,7 @@ function ReplyDialog({ ticket, onClose, onSaved }: ReplyDialogProps) {
   const [saving, setSaving]     = useState(false);
 
   useEffect(() => {
-    if (ticket) { setStatus(ticket.status); setNote(ticket.admin_note ?? ""); }
+    if (ticket) { setStatus(ticket.status); setNote(ticket.admin_note ?? ""); } // eslint-disable-line react-hooks/set-state-in-effect
   }, [ticket]);
 
   const handleSave = async () => {
@@ -171,7 +171,7 @@ export function SupportPage() {
   // Prefill from user
   useEffect(() => {
     if (user) {
-      setName((v) => v || user.display_name || user.username || "");
+      setName((v) => v || user.display_name || user.username || ""); // eslint-disable-line react-hooks/set-state-in-effect
       setEmail((v) => v || user.email || "");
     }
   }, [user]);
@@ -184,7 +184,7 @@ export function SupportPage() {
   };
 
   useEffect(() => {
-    if (isAdmin) loadAdminTickets();
+    if (isAdmin) loadAdminTickets(); // eslint-disable-line react-hooks/set-state-in-effect
   }, [isAdmin, filterStatus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = async () => {
