@@ -5,7 +5,9 @@ import {
   Bot,
   BrainCircuit,
   Database,
+  KeyRound,
   Loader2,
+  PlugZap,
   RefreshCw,
   Save,
   ShieldCheck,
@@ -30,6 +32,7 @@ import type {
   ProjectSqlAlias,
   ProjectSqlExample,
   ProjectSqlProvider,
+  ProjectSqlVannaLlmProvider,
   UpsertProjectSqlAgentSettingsPayload,
 } from "@/types";
 
@@ -43,6 +46,10 @@ const DEFAULT_SETTINGS: UpsertProjectSqlAgentSettingsPayload = {
   provider: "hybrid",
   model_name: null,
   temperature: null,
+  vanna_llm_provider: "ollama",
+  vanna_llm_url: null,
+  vanna_llm_api_key: undefined,
+  vanna_llm_timeout_seconds: 30,
   max_context_tables: 12,
   max_examples: 20,
   auto_refresh_schema: true,
@@ -79,6 +86,26 @@ function formatTimestamp(value: string | null | undefined): string {
   return new Date(value).toLocaleString();
 }
 
+function settingsToFormPayload(
+  data: ProjectSqlAgentSettings
+): UpsertProjectSqlAgentSettingsPayload {
+  return {
+    is_enabled: data.is_enabled,
+    shadow_mode: data.shadow_mode,
+    provider: data.provider,
+    model_name: data.model_name,
+    temperature: data.temperature,
+    vanna_llm_provider: data.vanna_llm_provider ?? "ollama",
+    vanna_llm_url: data.vanna_llm_url ?? null,
+    vanna_llm_api_key: undefined,
+    vanna_llm_timeout_seconds: data.vanna_llm_timeout_seconds ?? 30,
+    max_context_tables: data.max_context_tables,
+    max_examples: data.max_examples,
+    auto_refresh_schema: data.auto_refresh_schema,
+    schema_cache_ttl_seconds: data.schema_cache_ttl_seconds,
+  };
+}
+
 export function ProjectSqlTab({ projectId }: Props) {
   const [loading, setLoading] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
@@ -110,17 +137,7 @@ export function ProjectSqlTab({ projectId }: Props) {
 
       if (settingsResult.ok) {
         setSettingsMeta(settingsResult.data);
-        setSettings({
-          is_enabled: settingsResult.data.is_enabled,
-          shadow_mode: settingsResult.data.shadow_mode,
-          provider: settingsResult.data.provider,
-          model_name: settingsResult.data.model_name,
-          temperature: settingsResult.data.temperature,
-          max_context_tables: settingsResult.data.max_context_tables,
-          max_examples: settingsResult.data.max_examples,
-          auto_refresh_schema: settingsResult.data.auto_refresh_schema,
-          schema_cache_ttl_seconds: settingsResult.data.schema_cache_ttl_seconds,
-        });
+        setSettings(settingsToFormPayload(settingsResult.data));
       } else {
         setSettingsMeta(null);
         setSettings(DEFAULT_SETTINGS);
@@ -142,23 +159,24 @@ export function ProjectSqlTab({ projectId }: Props) {
     () => Object.entries(schemaCache?.schema_json?.tables ?? {}),
     [schemaCache]
   );
+  const usesOpenAiCompatibleVanna =
+    settings.vanna_llm_provider === "openai_compatible";
 
   async function handleSaveSettings() {
     setSavingSettings(true);
-    const result = await projectSqlService.upsertSettings(projectId, settings);
+    const payload: UpsertProjectSqlAgentSettingsPayload = {
+      ...settings,
+      model_name: settings.model_name?.trim() || null,
+      vanna_llm_url:
+        settings.vanna_llm_provider === "openai_compatible"
+          ? settings.vanna_llm_url?.trim() || null
+          : null,
+      vanna_llm_api_key: settings.vanna_llm_api_key?.trim() || undefined,
+    };
+    const result = await projectSqlService.upsertSettings(projectId, payload);
     if (result.ok) {
       setSettingsMeta(result.data);
-      setSettings({
-        is_enabled: result.data.is_enabled,
-        shadow_mode: result.data.shadow_mode,
-        provider: result.data.provider,
-        model_name: result.data.model_name,
-        temperature: result.data.temperature,
-        max_context_tables: result.data.max_context_tables,
-        max_examples: result.data.max_examples,
-        auto_refresh_schema: result.data.auto_refresh_schema,
-        schema_cache_ttl_seconds: result.data.schema_cache_ttl_seconds,
-      });
+      setSettings(settingsToFormPayload(result.data));
     }
     setSavingSettings(false);
   }
@@ -295,6 +313,93 @@ export function ProjectSqlTab({ projectId }: Props) {
             </div>
           </div>
 
+          <div className="rounded-xl border bg-muted/20 p-4">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <PlugZap className="size-4 text-primary" />
+                  <h3 className="text-sm font-medium">LLM Vanna text-to-SQL</h3>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Configure le moteur qui transforme les questions en SQL. Groq, OpenRouter, Mistral ou tout endpoint
+                  OpenAI-compatible peuvent être branchés sans changement de code.
+                </p>
+              </div>
+              {settingsMeta?.has_vanna_llm_api_key && usesOpenAiCompatibleVanna && (
+                <Badge variant="outline" className="gap-1 self-start">
+                  <KeyRound className="size-3" />
+                  Clé API enregistrée
+                </Badge>
+              )}
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div className="space-y-2">
+                <Label>Provider LLM Vanna</Label>
+                <Select
+                  value={settings.vanna_llm_provider}
+                  onValueChange={(value) =>
+                    setSettings((prev) => ({
+                      ...prev,
+                      vanna_llm_provider: value as ProjectSqlVannaLlmProvider,
+                      vanna_llm_url: value === "ollama" ? null : prev.vanna_llm_url,
+                      vanna_llm_api_key: undefined,
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ollama">Ollama</SelectItem>
+                    <SelectItem value="openai_compatible">OpenAI-compatible</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2 xl:col-span-2">
+                <Label>Endpoint OpenAI-compatible</Label>
+                <Input
+                  value={settings.vanna_llm_url ?? ""}
+                  onChange={(e) => setSettings((prev) => ({ ...prev, vanna_llm_url: e.target.value || null }))}
+                  placeholder="https://api.groq.com/openai/v1"
+                  disabled={!usesOpenAiCompatibleVanna}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Timeout LLM (s)</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  max="300"
+                  value={settings.vanna_llm_timeout_seconds}
+                  onChange={(e) => setSettings((prev) => ({
+                    ...prev,
+                    vanna_llm_timeout_seconds: Number(e.target.value) || 30,
+                  }))}
+                />
+              </div>
+
+              <div className="space-y-2 md:col-span-2 xl:col-span-4">
+                <Label>Clé API provider</Label>
+                <Input
+                  type="password"
+                  value={settings.vanna_llm_api_key ?? ""}
+                  onChange={(e) => setSettings((prev) => ({
+                    ...prev,
+                    vanna_llm_api_key: e.target.value || undefined,
+                  }))}
+                  placeholder={settingsMeta?.has_vanna_llm_api_key ? "Clé existante conservée si vide" : "sk_..., gsk_..., token provider"}
+                  disabled={!usesOpenAiCompatibleVanna}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Laisser vide conserve la clé déjà enregistrée. La clé est stockée chiffrée côté backend et n&apos;est jamais renvoyée au frontend.
+                </p>
+              </div>
+            </div>
+          </div>
+
           <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label>Max context tables</Label>
@@ -346,7 +451,8 @@ export function ProjectSqlTab({ projectId }: Props) {
                   Maj {formatTimestamp(settingsMeta.updated_at ?? settingsMeta.created_at)}
                 </Badge>
               )}
-              <Badge variant="secondary">Provider {settings.provider}</Badge>
+              <Badge variant="secondary">Runtime {settings.provider}</Badge>
+              <Badge variant="secondary">Vanna LLM {settings.vanna_llm_provider}</Badge>
             </div>
             <Button onClick={handleSaveSettings} disabled={savingSettings} className="gap-2">
               {savingSettings ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}

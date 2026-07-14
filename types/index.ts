@@ -74,6 +74,61 @@ export interface Project {
   config: ProjectConfig | null;
 }
 
+export type ProjectLLMUsage = "final_response" | "fast_agents" | "vanna_sql";
+export type ProjectLLMProviderType = "openai_compatible" | "gemini" | "ollama";
+
+export interface ProjectLLMProvider {
+  id: string | null;
+  project_id?: string | null;
+  usage: ProjectLLMUsage;
+  priority: number;
+  enabled: boolean;
+  provider_type: ProjectLLMProviderType;
+  name: string;
+  url: string | null;
+  model: string;
+  has_api_key: boolean;
+  temperature: number | null;
+  max_tokens: number | null;
+  timeout_seconds: number;
+  source?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface ProjectLLMSettingsResponse {
+  project_id: string;
+  uses_project_settings: boolean;
+  providers: ProjectLLMProvider[];
+  defaults: ProjectLLMProvider[];
+}
+
+export interface UpsertProjectLLMProviderPayload {
+  id?: string | null;
+  usage: ProjectLLMUsage;
+  priority: number;
+  enabled: boolean;
+  provider_type: ProjectLLMProviderType;
+  name: string;
+  url?: string | null;
+  model: string;
+  api_key?: string | null;
+  clear_api_key?: boolean;
+  temperature?: number | null;
+  max_tokens?: number | null;
+  timeout_seconds: number;
+}
+
+export interface UpsertProjectLLMSettingsPayload {
+  providers: UpsertProjectLLMProviderPayload[];
+}
+
+export interface ProjectLLMTestResponse {
+  ok: boolean;
+  provider: string;
+  response: string;
+}
+
 export interface ProjectListResponse {
   projects: Project[];
   pagination: {
@@ -423,6 +478,7 @@ export interface ProjectDatabaseTestResult {
 }
 
 export type ProjectSqlProvider = "heuristic" | "vanna" | "hybrid";
+export type ProjectSqlVannaLlmProvider = "ollama" | "openai_compatible";
 
 export interface ProjectSqlAgentSettings {
   id: string;
@@ -432,6 +488,10 @@ export interface ProjectSqlAgentSettings {
   provider: ProjectSqlProvider;
   model_name: string | null;
   temperature: number | null;
+  vanna_llm_provider: ProjectSqlVannaLlmProvider;
+  vanna_llm_url: string | null;
+  has_vanna_llm_api_key: boolean;
+  vanna_llm_timeout_seconds: number;
   max_context_tables: number;
   max_examples: number;
   auto_refresh_schema: boolean;
@@ -448,6 +508,10 @@ export interface UpsertProjectSqlAgentSettingsPayload {
   provider: ProjectSqlProvider;
   model_name?: string | null;
   temperature?: number | null;
+  vanna_llm_provider: ProjectSqlVannaLlmProvider;
+  vanna_llm_url?: string | null;
+  vanna_llm_api_key?: string | null;
+  vanna_llm_timeout_seconds: number;
   max_context_tables: number;
   max_examples: number;
   auto_refresh_schema: boolean;
