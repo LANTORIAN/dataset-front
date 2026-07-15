@@ -48,6 +48,7 @@ export interface ProjectConfig {
   contact_email: string | null;
   contact_phone: string | null;
   contact_website: string | null;
+  site_actions: ProjectSiteAction[];
   default_language: string | null;
   fallback_behavior: string | null;
   enable_web_search: boolean;
@@ -72,6 +73,17 @@ export interface Project {
   created_at: string;
   updated_at: string;
   config: ProjectConfig | null;
+}
+
+export interface ProjectSiteAction {
+  label: string;
+  url: string;
+  description?: string | null;
+  action_type?: string | null;
+  tags: string[];
+  module_ids: string[];
+  priority: number;
+  enabled: boolean;
 }
 
 export type ProjectLLMUsage = "final_response" | "fast_agents" | "vanna_sql";
@@ -189,7 +201,9 @@ export interface CreateProjectPayload {
   contact_website?: string;
 }
 
-export type UpdateProjectPayload = Partial<CreateProjectPayload>;
+export type UpdateProjectPayload = Partial<CreateProjectPayload> & {
+  site_actions?: ProjectSiteAction[];
+};
 
 export interface RotateKeyResponse {
   project_id: string;

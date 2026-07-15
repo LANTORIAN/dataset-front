@@ -10,6 +10,7 @@ import {
   Globe,
   Info,
   KeyRound,
+  Link2,
   Plus,
   Save,
   TestTube2,
@@ -41,6 +42,7 @@ import type {
   ProjectLLMProvider,
   ProjectLLMProviderType,
   ProjectLLMUsage,
+  ProjectSiteAction,
   UpsertProjectLLMProviderPayload,
 } from "@/types";
 
@@ -161,6 +163,59 @@ function toPayload(provider: EditableProvider): UpsertProjectLLMProviderPayload 
   };
 }
 
+function splitList(value: string): string[] {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function joinList(value: string[] | null | undefined): string {
+  return (value ?? []).join(", ");
+}
+
+function createSiteAction(): ProjectSiteAction {
+  return {
+    label: "",
+    url: "",
+    description: "",
+    action_type: "view_page",
+    tags: [],
+    module_ids: [],
+    priority: 50,
+    enabled: true,
+  };
+}
+
+function normalizeSiteActions(actions: ProjectSiteAction[] | null | undefined): ProjectSiteAction[] {
+  return (actions ?? []).map((action) => ({
+    label: action.label ?? "",
+    url: action.url ?? "",
+    description: action.description ?? "",
+    action_type: action.action_type ?? "view_page",
+    tags: action.tags ?? [],
+    module_ids: action.module_ids ?? [],
+    priority: action.priority ?? 50,
+    enabled: action.enabled ?? true,
+  }));
+}
+
+function toSiteActionPayload(action: ProjectSiteAction): ProjectSiteAction | null {
+  const label = action.label.trim();
+  const url = action.url.trim();
+  if (!label || !url) return null;
+  return {
+    label,
+    url,
+    description: action.description?.trim() || null,
+    action_type: action.action_type?.trim() || "view_page",
+    tags: action.tags,
+    module_ids: action.module_ids,
+    priority: Math.max(0, Math.min(100, Number(action.priority) || 50)),
+    enabled: action.enabled,
+  };
+}
+
 export function ProjectConfigForm({ project, onSaved }: Props) {
   const cfg = project.config;
 
@@ -171,6 +226,10 @@ export function ProjectConfigForm({ project, onSaved }: Props) {
   const [assistantRole, setAssistantRole] = useState(cfg?.assistant_role ?? "");
   const [assistantTone, setAssistantTone] = useState(cfg?.assistant_tone ?? "");
   const [maxCtx, setMaxCtx] = useState(String(cfg?.max_context_messages ?? 10));
+  const [contactWebsite, setContactWebsite] = useState(cfg?.contact_website ?? "");
+  const [siteActions, setSiteActions] = useState<ProjectSiteAction[]>(
+    normalizeSiteActions(cfg?.site_actions)
+  );
   const [saving, setSaving] = useState(false);
 
   const [llmProviders, setLlmProviders] = useState<EditableProvider[]>([]);
@@ -215,6 +274,18 @@ export function ProjectConfigForm({ project, onSaved }: Props) {
     .map((provider) => provider.name || provider.model)
     .join(" → ") || "Fallback serveur";
 
+  const updateSiteAction = (index: number, updates: Partial<ProjectSiteAction>) => {
+    setSiteActions((prev) =>
+      prev.map((action, currentIndex) =>
+        currentIndex === index ? { ...action, ...updates } : action
+      )
+    );
+  };
+
+  const removeSiteAction = (index: number) => {
+    setSiteActions((prev) => prev.filter((_, currentIndex) => currentIndex !== index));
+  };
+
   const handleSave = async () => {
     setSaving(true);
     const result = await projectsService.update(project.id, {
@@ -225,6 +296,10 @@ export function ProjectConfigForm({ project, onSaved }: Props) {
       assistant_role: assistantRole.trim() || undefined,
       assistant_tone: assistantTone.trim() || undefined,
       max_context_messages: parseInt(maxCtx, 10) || undefined,
+      contact_website: contactWebsite.trim() || undefined,
+      site_actions: siteActions
+        .map(toSiteActionPayload)
+        .filter((action): action is ProjectSiteAction => Boolean(action)),
     });
     if (result.ok) onSaved(result.data);
     setSaving(false);
@@ -369,6 +444,94 @@ export function ProjectConfigForm({ project, onSaved }: Props) {
               </SelectContent>
             </Select>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex flex-wrap items-center gap-2">
+            <Link2 className="size-4" />Pages & actions
+            <Badge variant="outline" className="ml-auto">
+              {siteActions.filter((action) => action.enabled && action.label && action.url).length} active(s)
+            </Badge>
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Déclare les pages du site que l&apos;assistant peut proposer comme actions exploitables dans ses réponses.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs">URL du site</Label>
+            <Input value={contactWebsite} onChange={(e) => setContactWebsite(e.target.value)} className="h-8 text-sm" placeholder="https://client.example" />
+            <p className="text-[11px] text-muted-foreground">
+              Les URLs relatives comme <code>/packs</code> seront rattachées à cette URL côté backend.
+            </p>
+          </div>
+
+          {siteActions.length === 0 ? (
+            <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+              Aucune page/action configurée. Ajoute les pages clés du site pour guider les utilisateurs.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {siteActions.map((action, index) => (
+                <div key={index} className="rounded-md border bg-muted/20 p-3 space-y-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Switch checked={action.enabled} onCheckedChange={(checked) => updateSiteAction(index, { enabled: checked })} />
+                    <span className="text-xs text-muted-foreground">{action.enabled ? "Action active" : "Action désactivée"}</span>
+                    <Button type="button" variant="outline" size="icon" className="ml-auto size-7 text-destructive" onClick={() => removeSiteAction(index)}>
+                      <Trash2 className="size-3" />
+                    </Button>
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Libellé</Label>
+                      <Input value={action.label} onChange={(e) => updateSiteAction(index, { label: e.target.value })} className="h-8 text-xs" placeholder="Voir les packs" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">URL</Label>
+                      <Input value={action.url} onChange={(e) => updateSiteAction(index, { url: e.target.value })} className="h-8 text-xs" placeholder="/packs" />
+                    </div>
+                    <div className="space-y-1.5 md:col-span-2">
+                      <Label className="text-xs">Description</Label>
+                      <Input value={action.description ?? ""} onChange={(e) => updateSiteAction(index, { description: e.target.value })} className="h-8 text-xs" placeholder="Comparer les offres disponibles" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Type</Label>
+                      <Select value={action.action_type ?? "view_page"} onValueChange={(value) => updateSiteAction(index, { action_type: value })}>
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="view_page">Voir une page</SelectItem>
+                          <SelectItem value="start_checkout">Continuer / checkout</SelectItem>
+                          <SelectItem value="contact">Prendre contact</SelectItem>
+                          <SelectItem value="book">Réserver</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Priorité</Label>
+                      <Input type="number" min={0} max={100} value={action.priority} onChange={(e) => updateSiteAction(index, { priority: Number(e.target.value) || 50 })} className="h-8 text-xs" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Tags</Label>
+                      <Input value={joinList(action.tags)} onChange={(e) => updateSiteAction(index, { tags: splitList(e.target.value) })} className="h-8 text-xs" placeholder="packs, prix, offres" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Modules liés</Label>
+                      <Input value={joinList(action.module_ids)} onChange={(e) => updateSiteAction(index, { module_ids: splitList(e.target.value) })} className="h-8 text-xs" placeholder="creation_site, paiement_en_ligne" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <Button type="button" variant="outline" size="sm" className="h-8 gap-1 text-xs" onClick={() => setSiteActions((prev) => [...prev, createSiteAction()])}>
+            <Plus className="size-3" />Ajouter une page/action
+          </Button>
         </CardContent>
       </Card>
 
