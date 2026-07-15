@@ -16,6 +16,7 @@ import {
   Globe2,
   Layers3,
   ShoppingBag,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -402,6 +403,177 @@ type ParsedTable = {
   headers: string[];
   rows: string[][];
 };
+
+type ActionLink = {
+  label: string;
+  url: string;
+  description?: string;
+};
+
+const URL_RE = /https?:\/\/[^\s)\]}]+/gi;
+
+function normalizeHeading(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function cleanUrl(value: string): string {
+  return value.replace(/[.,;:!?]+$/g, "");
+}
+
+function hasUrl(value: string): boolean {
+  URL_RE.lastIndex = 0;
+  return URL_RE.test(value);
+}
+
+function compactActionLabel(label: string): string {
+  const cleaned = label.replace(/\s+/g, " ").trim();
+  if (!cleaned) return "Ouvrir la page";
+  return cleaned.length > 64 ? `${cleaned.slice(0, 61).trim()}...` : cleaned;
+}
+
+function readMarketplaceActionLinks(plan: Record<string, unknown> | undefined): ActionLink[] {
+  const siteActions = Array.isArray(plan?.["site_actions"]) ? plan["site_actions"] : [];
+  return siteActions.reduce<ActionLink[]>((links, item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return links;
+    const action = item as Record<string, unknown>;
+    const label = typeof action.label === "string" ? action.label.trim() : "";
+    const url = typeof action.url === "string" ? cleanUrl(action.url.trim()) : "";
+    const description = typeof action.description === "string" ? action.description.trim() : "";
+    if (!url) return links;
+    links.push({
+      label: compactActionLabel(label || description || "Ouvrir la page"),
+      url,
+      description: description || undefined,
+    });
+    return links;
+  }, []);
+}
+
+function parseActionLine(line: string): ActionLink[] {
+  URL_RE.lastIndex = 0;
+  const matches = [...line.matchAll(URL_RE)];
+  if (!matches.length) return [];
+
+  return matches.map((match) => {
+    const rawUrl = match[0];
+    const url = cleanUrl(rawUrl);
+    const urlIndex = match.index ?? line.indexOf(rawUrl);
+    const before = line
+      .slice(0, urlIndex)
+      .replace(/^[-*]\s*/, "")
+      .replace(/\s*[:\-–—]\s*$/, "")
+      .trim();
+    const after = line
+      .slice(urlIndex + rawUrl.length)
+      .replace(/^\s*[-–—:]\s*/, "")
+      .trim();
+
+    return {
+      label: compactActionLabel(before || after || "Ouvrir la page"),
+      url,
+      description: after || undefined,
+    };
+  });
+}
+
+function extractActionLinks(content: string, plan: Record<string, unknown> | undefined): ActionLink[] {
+  const links = readMarketplaceActionLinks(plan);
+  const raw = stripCodeFences(content);
+  const lines = raw.split("\n");
+  let inActions = false;
+
+  for (const line of lines) {
+    const normalized = normalizeHeading(line.trim());
+    if (/^(actions proposees|actions to take)\s*:/.test(normalized)) {
+      inActions = true;
+      continue;
+    }
+    if (/^(informations a preciser|information to clarify|recommandations|recommendations)\s*:/.test(normalized)) {
+      inActions = false;
+    }
+    if (inActions || hasUrl(line)) {
+      links.push(...parseActionLine(line));
+    }
+  }
+
+  const seen = new Set<string>();
+  return links.filter((link) => {
+    const key = `${link.url}|${link.label}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 4);
+}
+
+function removeActionText(content: string, links: ActionLink[]): string {
+  if (!links.length) return content;
+  const urls = new Set(links.map((link) => link.url));
+  let skippingActions = false;
+  const kept: string[] = [];
+
+  for (const line of content.split("\n")) {
+    const trimmed = line.trim();
+    const normalized = normalizeHeading(trimmed);
+
+    if (/^(actions proposees|actions to take)\s*:/.test(normalized)) {
+      skippingActions = true;
+      continue;
+    }
+
+    if (/^(informations a preciser|information to clarify)\s*:/.test(normalized)) {
+      skippingActions = false;
+    }
+
+    const lineUrls = [...line.matchAll(URL_RE)].map((match) => cleanUrl(match[0]));
+    const hasActionUrl = lineUrls.some((url) => urls.has(url));
+    const isGenericActionLine = /^[-*]\s*(continuer|continue)\b/i.test(trimmed);
+
+    if (skippingActions && (!trimmed || trimmed.startsWith("-") || hasActionUrl || isGenericActionLine)) {
+      continue;
+    }
+    if (hasActionUrl) continue;
+
+    kept.push(line);
+  }
+
+  const hasRecommendationItems = kept.some((line) => /^[-*]\s*(recommandation|option|main|complementary)\b/i.test(line.trim()));
+  return kept
+    .filter((line) => {
+      const normalized = normalizeHeading(line.trim());
+      if (/^(recommandations|recommendations)\s*:/.test(normalized) && !hasRecommendationItems) return false;
+      return true;
+    })
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function ActionLinkButtons({ links }: { links: ActionLink[] }) {
+  if (!links.length) return null;
+
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {links.map((link, idx) => (
+        <Button
+          key={`${link.url}-${idx}`}
+          asChild
+          size="sm"
+          variant={idx === 0 ? "default" : "secondary"}
+          className="h-auto min-h-9 max-w-full rounded-full px-3 py-2 text-xs shadow-sm"
+        >
+          <a href={link.url} target="_blank" rel="noopener noreferrer" title={link.description || link.label}>
+            <ShoppingBag className="size-3.5" />
+            <span className="max-w-[220px] truncate sm:max-w-[280px]">{link.label}</span>
+            <ExternalLink className="size-3.5 opacity-80" />
+          </a>
+        </Button>
+      ))}
+    </div>
+  );
+}
 
 function parseDbTableMarker(content: string): ParsedTable | null {
   const raw = stripCodeFences(content);
@@ -925,7 +1097,9 @@ function AgenticThinking({
 function MessageBubble({ message, isAdmin, onStop, onFeedback }: BubbleProps) {
   const isUser = message.role === "user";
   const cleanedContent = isUser ? message.content : removeDbTableMarker(message.content);
-  const isAsciiTable = !isUser && cleanedContent.includes("Table ") && cleanedContent.includes("+-") && cleanedContent.includes("| ");
+  const actionLinks = !isUser ? extractActionLinks(cleanedContent, message.marketplace_plan) : [];
+  const displayContent = !isUser ? removeActionText(cleanedContent, actionLinks) : cleanedContent;
+  const isAsciiTable = !isUser && displayContent.includes("Table ") && displayContent.includes("+-") && displayContent.includes("| ");
   const parsedTable = !isUser ? parseAssistantTable(message.content) : null;
   const showAgenticPanel = !isUser && message.streaming && !message.content;
   const [showComment, setShowComment]   = useState(false);
@@ -1014,11 +1188,12 @@ function MessageBubble({ message, isAdmin, onStop, onFeedback }: BubbleProps) {
                 </div>
               </div>
             ) : isAsciiTable ? (
-              <pre className="whitespace-pre overflow-x-auto text-xs leading-relaxed font-mono">{cleanedContent}</pre>
+              <pre className="whitespace-pre overflow-x-auto text-xs leading-relaxed font-mono">{displayContent}</pre>
             ) : (
-              <p className="whitespace-pre-wrap leading-relaxed">{cleanedContent}</p>
+              displayContent && <p className="whitespace-pre-wrap leading-relaxed">{displayContent}</p>
             )
           )}
+          {!isUser && <ActionLinkButtons links={actionLinks} />}
           {message.streaming && message.content && (
             <span className="inline-block w-0.5 h-3.5 bg-current ml-0.5 animate-pulse align-middle" />
           )}
