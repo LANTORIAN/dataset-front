@@ -423,11 +423,6 @@ function cleanUrl(value: string): string {
   return value.replace(/[.,;:!?]+$/g, "");
 }
 
-function hasUrl(value: string): boolean {
-  URL_RE.lastIndex = 0;
-  return URL_RE.test(value);
-}
-
 function compactActionLabel(label: string): string {
   const cleaned = label.replace(/\s+/g, " ").trim();
   if (!cleaned) return "Ouvrir la page";
@@ -494,7 +489,7 @@ function extractActionLinks(content: string, plan: Record<string, unknown> | und
     if (/^(informations a preciser|information to clarify|recommandations|recommendations)\s*:/.test(normalized)) {
       inActions = false;
     }
-    if (inActions || hasUrl(line)) {
+    if (inActions) {
       links.push(...parseActionLine(line));
     }
   }
