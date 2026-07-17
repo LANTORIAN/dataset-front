@@ -53,7 +53,7 @@ interface UiMessage extends ConversationMessage {
   backend_id?: string;
   /** Feedback already submitted for this message. */
   feedback?: FeedbackRating;
-  progress_steps?: Array<{ step: string; message: string }>;
+  progress_steps?: ProgressStep[];
   trace_events?: Array<{ kind: "reasoning" | "verify"; title: string; message: string }>;
   selected_modules?: string[];
   module_results?: Array<Record<string, unknown>>;
@@ -65,6 +65,10 @@ interface UiMessage extends ConversationMessage {
   recovery_actions?: string[];
 }
 
+type ProgressStep = { step: string; message: string };
+
+const MAX_PROGRESS_STEPS = 14;
+
 const AGENTIC_CAPABILITIES = [
   { label: "RAG vectoriel", description: "fichiers indexés", icon: FileSearch },
   { label: "SQL / DB", description: "preuves structurées", icon: Database },
@@ -72,6 +76,95 @@ const AGENTIC_CAPABILITIES = [
   { label: "Planner", description: "orchestration", icon: GitBranch },
   { label: "Marketplace", description: "actions recommandées", icon: ShoppingBag },
 ];
+
+const THINKING_STAGES = [
+  { title: "Compréhension", short: "Route", icon: BrainCircuit },
+  { title: "Choix des sources", short: "Sources", icon: GitBranch },
+  { title: "Consultation", short: "Recherche", icon: FileSearch },
+  { title: "Sélection des preuves", short: "Preuve", icon: ShieldCheck },
+  { title: "Réponse", short: "Réponse", icon: CheckCircle2 },
+];
+
+const STEP_STAGE_INDEX: Record<string, number> = {
+  init: 0,
+  route: 0,
+  history: 0,
+  sources: 1,
+  rag: 2,
+  vector: 2,
+  vector_search: 2,
+  knowledge: 2,
+  tfidf: 2,
+  tfidf_fallback: 2,
+  db: 2,
+  database_search: 2,
+  external: 2,
+  external_search: 2,
+  select: 3,
+  verify: 3,
+  db_answer: 4,
+  action: 4,
+  faq: 4,
+  recover: 4,
+  answer: 4,
+};
+
+const STEP_ICONS: Record<string, typeof BrainCircuit> = {
+  init: BrainCircuit,
+  route: GitBranch,
+  history: Layers3,
+  sources: GitBranch,
+  rag: FileSearch,
+  vector: FileSearch,
+  vector_search: FileSearch,
+  knowledge: FileSearch,
+  tfidf: FileSearch,
+  tfidf_fallback: FileSearch,
+  db: Database,
+  database_search: Database,
+  external: Globe2,
+  external_search: Globe2,
+  select: ShieldCheck,
+  verify: ShieldCheck,
+  db_answer: Database,
+  action: ShoppingBag,
+  faq: FileSearch,
+  recover: AlertTriangle,
+  answer: CheckCircle2,
+};
+
+function normalizeProgressStep(step: string | undefined): string {
+  return (step || "progress").trim().toLowerCase();
+}
+
+function progressStageIndex(step: string | undefined, fallbackIndex: number): number {
+  const key = normalizeProgressStep(step);
+  return STEP_STAGE_INDEX[key] ?? Math.min(Math.max(fallbackIndex, 0), THINKING_STAGES.length - 1);
+}
+
+function isWarningProgressStep(step: string | undefined): boolean {
+  return normalizeProgressStep(step) === "recover";
+}
+
+function ProgressStepIcon({ step, className }: { step?: string; className?: string }) {
+  const key = normalizeProgressStep(step);
+  if (STEP_ICONS[key] === GitBranch) return <GitBranch className={className} />;
+  if (STEP_ICONS[key] === Layers3) return <Layers3 className={className} />;
+  if (STEP_ICONS[key] === FileSearch) return <FileSearch className={className} />;
+  if (STEP_ICONS[key] === Database) return <Database className={className} />;
+  if (STEP_ICONS[key] === Globe2) return <Globe2 className={className} />;
+  if (STEP_ICONS[key] === ShieldCheck) return <ShieldCheck className={className} />;
+  if (STEP_ICONS[key] === ShoppingBag) return <ShoppingBag className={className} />;
+  if (STEP_ICONS[key] === AlertTriangle) return <AlertTriangle className={className} />;
+  if (STEP_ICONS[key] === CheckCircle2) return <CheckCircle2 className={className} />;
+
+  const stageIndex = progressStageIndex(key, 0);
+  if (stageIndex === 1) return <GitBranch className={className} />;
+  if (stageIndex === 2) return <FileSearch className={className} />;
+  if (stageIndex === 3) return <ShieldCheck className={className} />;
+  if (stageIndex === 4) return <CheckCircle2 className={className} />;
+  return <BrainCircuit className={className} />;
+}
 
 interface Props {
   project: Project | null;
@@ -173,9 +266,12 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
             prev.map((m) => {
               if (m.id !== assistantId) return m;
               const existing = m.progress_steps ?? [];
-              const next = existing.some((s) => s.step === step)
-                ? existing.map((s) => (s.step === step ? { ...s, message } : s))
-                : [...existing, { step, message }];
+              const alreadyLogged = existing.some(
+                (s) => s.step === step && s.message === message
+              );
+              const next = alreadyLogged
+                ? existing
+                : [...existing, { step, message }].slice(-MAX_PROGRESS_STEPS);
               return { ...m, progress_steps: next };
             })
           ),
@@ -979,17 +1075,10 @@ function AgenticThinking({
 }) {
   const [now, setNow] = useState(() => Date.now());
   const activeSteps = steps?.length ? steps : [{ step: "init", message: "Analyse de votre question..." }];
-  const currentIndex = Math.min(Math.max(activeSteps.length - 1, 0), 4);
+  const latestStep = activeSteps[activeSteps.length - 1];
+  const currentIndex = progressStageIndex(latestStep?.step, activeSteps.length - 1);
   const latest = activeSteps[activeSteps.length - 1]?.message ?? "Orchestration en cours...";
-  const responseSteps = [
-    { title: "Analyse de la question", short: "Analyse", icon: BrainCircuit },
-    { title: "Recherche & RAG", short: "RAG", icon: FileSearch },
-    { title: "Génération SQL", short: "SQL", icon: Database },
-    { title: "Synthèse", short: "Synthèse", icon: Layers3 },
-    { title: "Réponse finale", short: "Réponse", icon: CheckCircle2 },
-  ];
-  const currentStep = responseSteps[currentIndex];
-  const CurrentIcon = currentStep.icon;
+  const currentStage = THINKING_STAGES[currentIndex];
   const startedAtMs = startedAt ? new Date(startedAt).getTime() : Number.NaN;
   const elapsedSeconds = Number.isFinite(startedAtMs)
     ? Math.max(0, Math.floor((now - startedAtMs) / 1000))
@@ -1009,11 +1098,14 @@ function AgenticThinking({
         <div className="flex items-center gap-2">
           <span className="relative flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <span className="absolute inset-0 rounded-lg border border-primary/25 animate-ping" />
-            <CurrentIcon className="relative size-3.5" />
+            <ProgressStepIcon step={latestStep?.step} className="relative size-3.5" />
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5 font-medium text-foreground">
               Assistant Agentique
+              <Badge variant="outline" className="h-4 rounded-full border-primary/20 bg-primary/5 px-1.5 text-[9px] text-primary">
+                {currentStage.short}
+              </Badge>
               <Badge variant="secondary" className="h-4 rounded-full bg-primary/10 px-1.5 text-[9px] text-primary">Multi-agents</Badge>
               <span className="text-[10px] font-normal text-muted-foreground">{elapsedLabel}</span>
             </div>
@@ -1025,7 +1117,7 @@ function AgenticThinking({
   }
 
   return (
-    <div className="w-full max-w-2xl py-1 text-sm">
+    <div className="w-full max-w-2xl py-1 text-sm" role="status" aria-live="polite">
       <div className="flex items-center gap-3 text-muted-foreground">
         <span className="relative flex size-5 shrink-0 items-center justify-center">
           <span className="absolute inset-0 rounded-full border border-primary/35 border-t-primary animate-spin" />
@@ -1045,9 +1137,9 @@ function AgenticThinking({
       <div className="ml-2.5 mt-4 border-l border-border/70 pl-5">
         <div className="flex flex-wrap items-center gap-2">
           <span className="size-1.5 rounded-full bg-muted-foreground/60" />
-          <span className="font-semibold text-foreground">{currentStep.title}</span>
+          <span className="font-semibold text-foreground">{currentStage.title}</span>
           <Badge variant="secondary" className="h-6 rounded-full bg-muted px-2 text-xs text-muted-foreground">
-            {currentIndex + 1}/{responseSteps.length}
+            {currentIndex + 1}/{THINKING_STAGES.length}
           </Badge>
           <Badge variant="outline" className="h-6 rounded-full border-primary/20 bg-primary/5 px-2 text-xs text-primary">
             Multi-agents
@@ -1055,7 +1147,7 @@ function AgenticThinking({
         </div>
 
         <div className="mt-3 grid gap-1.5 sm:grid-cols-5">
-          {responseSteps.map((step, idx) => {
+          {THINKING_STAGES.map((step, idx) => {
             const StepIcon = step.icon;
             const done = idx < currentIndex;
             const active = idx === currentIndex;
@@ -1074,11 +1166,21 @@ function AgenticThinking({
         </div>
 
         <div className="mt-4 space-y-2">
-          {activeSteps.slice(-3).map((s, idx) => {
-            const isLast = idx === activeSteps.slice(-3).length - 1;
+          {activeSteps.slice(-4).map((s, idx, visibleSteps) => {
+            const isLast = idx === visibleSteps.length - 1;
+            const isWarning = isWarningProgressStep(s.step);
             return (
               <div key={`${s.step}-${idx}`} className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span className={cn("size-1.5 rounded-full", isLast ? "bg-primary animate-pulse" : "bg-muted-foreground/50")} />
+                <span className={cn(
+                  "flex size-5 shrink-0 items-center justify-center rounded-full border",
+                  isWarning
+                    ? "border-warning/30 bg-warning/10 text-warning-foreground"
+                    : isLast
+                      ? "border-primary/25 bg-primary/10 text-primary"
+                      : "border-border/60 bg-background/50 text-muted-foreground"
+                )}>
+                  <ProgressStepIcon step={s.step} className={cn("size-3", isLast && !isWarning && "animate-pulse")} />
+                </span>
                 <span className={cn("truncate", isLast && "font-medium text-foreground")}>{s.message}</span>
               </div>
             );
