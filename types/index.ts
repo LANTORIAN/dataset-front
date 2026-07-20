@@ -243,6 +243,46 @@ export interface RagFile {
   uploaded_at: string;
 }
 
+export interface RagFileContent {
+  filename: string;
+  content: string;
+  size_bytes: number;
+  editable: boolean;
+}
+
+export interface RagFileUpdateResponse {
+  status: string;
+  filename: string;
+  size_bytes: number;
+  rebuild: {
+    project_id: string;
+    files_processed: number;
+    documents_indexed: number;
+    vector_chunks_indexed: number;
+    vector_error: string | null;
+    errors: { file: string; error: string }[];
+  } | null;
+}
+
+export type ProjectCacheScope = "all" | "responses" | "rag" | "db_followup";
+
+export interface ProjectCacheEntry {
+  key: string;
+  scope: string;
+  ttl_seconds: number | null;
+  value_type: string;
+  size_bytes: number;
+  value: unknown;
+  preview: string;
+}
+
+export interface ProjectCacheListResponse {
+  enabled: boolean;
+  project_id: string;
+  total: number;
+  entries: ProjectCacheEntry[];
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // Conversations & Messages
 // ────────────────────────────────────────────────────────────────────────────

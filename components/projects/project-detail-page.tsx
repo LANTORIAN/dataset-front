@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   FileText, MessageSquare, Trash2, ArrowLeft,
   CheckCircle, Clock, AlertCircle, Loader2, Search,
+  Edit3, RefreshCw,
 } from "lucide-react";
 import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
@@ -28,6 +29,8 @@ import { ProjectConfigForm } from "./project-config-form";
 import { KnowledgeSourcesTab } from "./knowledge-sources-tab";
 import { ProjectDatabaseTab } from "./project-database-tab";
 import { ProjectSqlTab } from "./project-sql-tab";
+import { ProjectCachePanel } from "./project-cache-panel";
+import { RagFileEditorDialog } from "./rag-file-editor-dialog";
 import { projectsService } from "@/services/projects.service";
 import { ragFilesService } from "@/services/rag-files.service";
 import { useDebounce } from "@/lib/hooks/use-debounce";
@@ -61,6 +64,8 @@ export function ProjectDetailPage({ projectId }: Props) {
   const [search, setSearch]     = useState("");
   const [status, setStatus]     = useState<StatusFilter>("all");
   const [page, setPage]         = useState(1);
+  const [editorFile, setEditorFile] = useState<RagFile | null>(null);
+  const [rebuilding, setRebuilding] = useState(false);
 
   const debouncedSearch = useDebounce(search, 300);
 
@@ -104,6 +109,14 @@ export function ProjectDetailPage({ projectId }: Props) {
     if (!confirm(`Supprimer "${filename}" ?`)) return;
     const result = await ragFilesService.delete(projectId, filename, apiKey);
     if (result.ok) setFiles((prev) => prev.filter((f) => f.filename !== filename));
+  };
+
+  const handleRebuild = async () => {
+    if (!apiKey) return;
+    setRebuilding(true);
+    const result = await ragFilesService.rebuild(projectId, apiKey);
+    setRebuilding(false);
+    if (result.ok) await load();
   };
 
   if (loading) {
@@ -214,7 +227,13 @@ export function ProjectDetailPage({ projectId }: Props) {
             <CardTitle className="text-base">Fichiers du dataset</CardTitle>
             <CardDescription>Fichiers indexés dans la base vectorielle du projet</CardDescription>
           </div>
-          <UploadFileDialog projectId={projectId} apiKey={apiKey} onUploaded={load} />
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button variant="outline" size="sm" className="gap-2" onClick={handleRebuild} disabled={!apiKey || rebuilding}>
+              {rebuilding ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+              Reconstruire
+            </Button>
+            <UploadFileDialog projectId={projectId} apiKey={apiKey} onUploaded={load} />
+          </div>
         </CardHeader>
 
         {/* Toolbar */}
@@ -290,13 +309,24 @@ export function ProjectDetailPage({ projectId }: Props) {
                         {file.chunks_count ?? "—"}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost" size="icon"
-                          className="size-7 text-muted-foreground hover:text-destructive"
-                          onClick={() => handleDeleteFile(file.filename)}
-                        >
-                          <Trash2 className="size-3.5" />
-                        </Button>
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost" size="icon"
+                            className="size-7"
+                            onClick={() => setEditorFile(file)}
+                            title="Lire ou modifier le fichier"
+                          >
+                            <Edit3 className="size-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost" size="icon"
+                            className="size-7 text-muted-foreground hover:text-destructive"
+                            onClick={() => handleDeleteFile(file.filename)}
+                            title="Supprimer le fichier"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -356,6 +386,17 @@ export function ProjectDetailPage({ projectId }: Props) {
           )}
         </CardContent>
       </Card>
+
+      <ProjectCachePanel projectId={projectId} apiKey={apiKey} />
+
+      <RagFileEditorDialog
+        projectId={projectId}
+        apiKey={apiKey}
+        file={editorFile}
+        open={!!editorFile}
+        onOpenChange={(open) => { if (!open) setEditorFile(null); }}
+        onSaved={load}
+      />
 
         </TabsContent>
       </Tabs>
