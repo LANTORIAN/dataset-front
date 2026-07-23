@@ -1,6 +1,6 @@
 import { parseApiError } from "./errors";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8087/api/v1";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "/api/v1";
 
 function apiBaseFor(version: "v1" | "v2"): string {
   return version === "v2"
