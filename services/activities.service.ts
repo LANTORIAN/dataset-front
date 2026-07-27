@@ -6,7 +6,7 @@
 
 import { bearerGet, bearerPost } from "@/lib/api/client";
 import { withService } from "@/lib/api/result";
-import type { Activity, ActivityListResponse } from "@/types";
+import type { ActivityListResponse } from "@/types";
 
 export const activitiesService = {
   /**

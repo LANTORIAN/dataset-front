@@ -36,7 +36,7 @@ export function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const { user, refreshUser, isAdmin } = useAuth();
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  useEffect(() => setMounted(true), []); // eslint-disable-line react-hooks/set-state-in-effect
 
   // Profile state — initialized from context user
   const [displayName, setDisplayName] = useState(user?.display_name ?? "");
@@ -45,7 +45,7 @@ export function SettingsPage() {
 
   // Keep form in sync if user changes
   useEffect(() => {
-    setDisplayName(user?.display_name ?? "");
+    setDisplayName(user?.display_name ?? ""); // eslint-disable-line react-hooks/set-state-in-effect
     setEmail(user?.email ?? "");
   }, [user]);
 

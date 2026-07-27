@@ -11,6 +11,7 @@ import type {
   AnalyticsTrend,
   TopQuestion,
   FailedQuery,
+  ConversationIssues,
   SatisfactionStats,
   CostStats,
 } from "@/types";
@@ -49,10 +50,12 @@ export const analyticsService = {
    */
   trends(projectId: string, days = 30, period: TrendPeriod = "daily") {
     return withService(
-      () =>
-        bearerGet<AnalyticsTrend[]>(
-          `/analytics/projects/${projectId}/trends?days=${days}&period=${period}`
-        ),
+      async () => {
+        const response = await bearerGet<
+          AnalyticsTrend[] | { trends: AnalyticsTrend[] }
+        >(`/analytics/projects/${projectId}/trends?days=${days}&period=${period}`);
+        return Array.isArray(response) ? response : response.trends;
+      },
       { showErrorToast: false }
     );
   },
@@ -78,6 +81,19 @@ export const analyticsService = {
       () =>
         bearerGet<{ queries: FailedQuery[]; total: number }>(
           `/analytics/projects/${projectId}/failed-queries?limit=${limit}&days=${days}`
+        ),
+      { showErrorToast: false }
+    );
+  },
+
+  /**
+   * Signaux de bugs et conversations non résolues.
+   */
+  conversationIssues(projectId: string, limit = 10, days = 30) {
+    return withService(
+      () =>
+        bearerGet<ConversationIssues>(
+          `/analytics/projects/${projectId}/conversation-issues?limit=${limit}&days=${days}`
         ),
       { showErrorToast: false }
     );

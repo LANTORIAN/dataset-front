@@ -48,6 +48,7 @@ export interface ProjectConfig {
   contact_email: string | null;
   contact_phone: string | null;
   contact_website: string | null;
+  site_actions: ProjectSiteAction[];
   default_language: string | null;
   fallback_behavior: string | null;
   enable_web_search: boolean;
@@ -72,6 +73,86 @@ export interface Project {
   created_at: string;
   updated_at: string;
   config: ProjectConfig | null;
+}
+
+export interface ProjectSiteAction {
+  label: string;
+  url: string;
+  description?: string | null;
+  action_type?: string | null;
+  tags: string[];
+  module_ids: string[];
+  priority: number;
+  enabled: boolean;
+}
+
+export type ProjectLLMUsage =
+  | "final_response"
+  | "fast_agents"
+  | "vanna_sql"
+  | "semantic_critic";
+export type ProjectLLMProviderType = "openai_compatible" | "gemini" | "ollama";
+
+export interface ProjectLLMProvider {
+  id: string | null;
+  project_id?: string | null;
+  usage: ProjectLLMUsage;
+  priority: number;
+  enabled: boolean;
+  provider_type: ProjectLLMProviderType;
+  name: string;
+  url: string | null;
+  model: string;
+  has_api_key: boolean;
+  temperature: number | null;
+  max_tokens: number | null;
+  timeout_seconds: number;
+  max_concurrency: number | null;
+  max_project_concurrency: number | null;
+  queue_timeout_ms: number | null;
+  input_cost_per_million_usd: number | null;
+  output_cost_per_million_usd: number | null;
+  source?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface ProjectLLMSettingsResponse {
+  project_id: string;
+  uses_project_settings: boolean;
+  providers: ProjectLLMProvider[];
+  defaults: ProjectLLMProvider[];
+}
+
+export interface UpsertProjectLLMProviderPayload {
+  id?: string | null;
+  usage: ProjectLLMUsage;
+  priority: number;
+  enabled: boolean;
+  provider_type: ProjectLLMProviderType;
+  name: string;
+  url?: string | null;
+  model: string;
+  api_key?: string | null;
+  clear_api_key?: boolean;
+  temperature?: number | null;
+  max_tokens?: number | null;
+  timeout_seconds: number;
+  max_concurrency?: number | null;
+  max_project_concurrency?: number | null;
+  queue_timeout_ms?: number | null;
+  input_cost_per_million_usd?: number | null;
+  output_cost_per_million_usd?: number | null;
+}
+
+export interface UpsertProjectLLMSettingsPayload {
+  providers: UpsertProjectLLMProviderPayload[];
+}
+
+export interface ProjectLLMTestResponse {
+  ok: boolean;
+  provider: string;
+  response: string;
 }
 
 export interface ProjectListResponse {
@@ -134,7 +215,9 @@ export interface CreateProjectPayload {
   contact_website?: string;
 }
 
-export type UpdateProjectPayload = Partial<CreateProjectPayload>;
+export type UpdateProjectPayload = Partial<CreateProjectPayload> & {
+  site_actions?: ProjectSiteAction[];
+};
 
 export interface RotateKeyResponse {
   project_id: string;
@@ -172,6 +255,46 @@ export interface RagFile {
   chunks_count: number | null;
   error_message: string | null;
   uploaded_at: string;
+}
+
+export interface RagFileContent {
+  filename: string;
+  content: string;
+  size_bytes: number;
+  editable: boolean;
+}
+
+export interface RagFileUpdateResponse {
+  status: string;
+  filename: string;
+  size_bytes: number;
+  rebuild: {
+    project_id: string;
+    files_processed: number;
+    documents_indexed: number;
+    vector_chunks_indexed: number;
+    vector_error: string | null;
+    errors: { file: string; error: string }[];
+  } | null;
+}
+
+export type ProjectCacheScope = "all" | "responses" | "rag" | "db_followup";
+
+export interface ProjectCacheEntry {
+  key: string;
+  scope: string;
+  ttl_seconds: number | null;
+  value_type: string;
+  size_bytes: number;
+  value: unknown;
+  preview: string;
+}
+
+export interface ProjectCacheListResponse {
+  enabled: boolean;
+  project_id: string;
+  total: number;
+  entries: ProjectCacheEntry[];
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -215,15 +338,153 @@ export interface ConversationListResponse {
 // Chat
 // ────────────────────────────────────────────────────────────────────────────
 
+export interface NLUResult {
+  primary_intent: string;
+  confidence: number;
+  should_use_llm: boolean;
+  cached_response?: string | null;
+  language: string;
+  route_hint: string;
+  recommended_sources: string[];
+  entities: Record<string, unknown>;
+  requires_context: boolean;
+  cacheable: boolean;
+  latency_ms: number;
+}
+
+export interface RecoveryMetadata {
+  used: boolean;
+  reason: string;
+  actions: string[];
+}
+
 export interface ChatStreamChunk {
   content?: string;
   done?: boolean;
   error?: string;
   conversation_id?: string;
   source_type?: string;
+  nlu?: NLUResult;
+  recovery?: RecoveryMetadata;
   cached?: boolean;
   response_time?: number;
 }
+
+export type PublicChatOutcome =
+  | "answer"
+  | "recommendation"
+  | "hybrid"
+  | "action"
+  | "clarification"
+  | "out_of_scope"
+  | "refusal";
+
+export interface PublicChatRecommendationV2 {
+  capability_id: string;
+  name: string;
+  description: string;
+  reasons: string[];
+  optional: boolean;
+}
+
+export interface PublicChatActionV2 {
+  action_id: string;
+  label: string;
+  action_type: string;
+  url: string;
+  confirmation_required: boolean;
+  action_instance_id: string | null;
+  expires_at: string | null;
+  confirmation_token: string | null;
+  status: "ready" | "confirmation_required";
+}
+
+export interface PublicChatClarificationV2 {
+  set_id: string;
+  memory_revision: number;
+  reason: string;
+  questions: string[];
+  question_ids: string[];
+}
+
+export interface PublicChatSourceV2 {
+  citation_id: string;
+  source_type: "db" | "document" | "external" | "catalog";
+  label: string;
+  updated_at: string | null;
+}
+
+export interface PublicChatResponseV2 {
+  schema_version: "chat.public.v2";
+  conversation_id: string;
+  user_message_id: string;
+  assistant_message: {
+    id: string;
+    role: "assistant";
+    content: string;
+    created_at: string;
+  };
+  outcome: PublicChatOutcome;
+  recommendations: PublicChatRecommendationV2[];
+  actions: PublicChatActionV2[];
+  clarification: PublicChatClarificationV2 | null;
+  sources: PublicChatSourceV2[];
+  explanation: {
+    summary: string;
+    selected_reasons: string[];
+    limitations: string[];
+  } | null;
+  quality: {
+    status:
+      | "accepted"
+      | "confirmation_required"
+      | "clarification"
+      | "limited"
+      | "refused";
+    reviewed: true;
+  };
+  trace_id: string;
+}
+
+export interface PublicConversationMessageV2 extends ConversationMessage {
+  schema_version: "conversation.message.public.v2";
+  public_response: PublicChatResponseV2 | null;
+}
+
+export interface PublicConversationMessagesV2 {
+  schema_version: "conversation.messages.public.v2";
+  conversation_id: string;
+  messages: PublicConversationMessageV2[];
+}
+
+export type PublicChatSseEventV2 =
+  | {
+      schema_version: "chat.sse.v2";
+      event: "progress";
+      trace_id: string;
+      step: "planning" | "retrieving" | "composing" | "validating";
+    }
+  | {
+      schema_version: "chat.sse.v2";
+      event: "delta";
+      trace_id: string;
+      assistant_message_id: string;
+      sequence: number;
+      content: string;
+    }
+  | {
+      schema_version: "chat.sse.v2";
+      event: "final";
+      trace_id: string;
+      response: PublicChatResponseV2;
+    }
+  | {
+      schema_version: "chat.sse.v2";
+      event: "error";
+      trace_id: string;
+      code: "temporarily_unavailable" | "invalid_request" | "quality_rejected";
+      retryable: boolean;
+    };
 
 // ────────────────────────────────────────────────────────────────────────────
 // Knowledge Sources
@@ -401,6 +662,7 @@ export interface ProjectDatabaseTestResult {
 }
 
 export type ProjectSqlProvider = "heuristic" | "vanna" | "hybrid";
+export type ProjectSqlVannaLlmProvider = "ollama" | "openai_compatible";
 
 export interface ProjectSqlAgentSettings {
   id: string;
@@ -410,6 +672,10 @@ export interface ProjectSqlAgentSettings {
   provider: ProjectSqlProvider;
   model_name: string | null;
   temperature: number | null;
+  vanna_llm_provider: ProjectSqlVannaLlmProvider;
+  vanna_llm_url: string | null;
+  has_vanna_llm_api_key: boolean;
+  vanna_llm_timeout_seconds: number;
   max_context_tables: number;
   max_examples: number;
   auto_refresh_schema: boolean;
@@ -426,6 +692,10 @@ export interface UpsertProjectSqlAgentSettingsPayload {
   provider: ProjectSqlProvider;
   model_name?: string | null;
   temperature?: number | null;
+  vanna_llm_provider: ProjectSqlVannaLlmProvider;
+  vanna_llm_url?: string | null;
+  vanna_llm_api_key?: string | null;
+  vanna_llm_timeout_seconds: number;
   max_context_tables: number;
   max_examples: number;
   auto_refresh_schema: boolean;
@@ -514,6 +784,18 @@ export interface FailedQuery {
   count: number;
   last_occurred: string;
   sample_context?: string;
+}
+
+export interface ConversationIssues {
+  total_user_messages: number;
+  unresolved_messages: number;
+  unanswered_messages: number;
+  uncertain_responses: number;
+  negative_feedbacks: number;
+  unresolved_rate: number;
+  avg_response_time_ms: number;
+  p95_response_time_ms: number;
+  recent_errors: FailedQuery[];
 }
 
 export interface SatisfactionStats {
@@ -660,6 +942,489 @@ export interface DocumentationContent {
   overview: DocumentationOverview;
   dev: DocumentationDev;
   qa: DocumentationQa;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Marketplace
+// ────────────────────────────────────────────────────────────────────────────
+
+export interface MarketplaceModuleUpsert {
+  module_id: string;
+  name: string;
+  description?: string;
+  needs?: string[];
+  required_data?: string[];
+  preconditions?: string[];
+  compatible_with?: string[];
+  incompatible_with?: string[];
+  priority?: number;
+  output_type?: string;
+  is_enabled?: boolean;
+}
+
+export interface MarketplaceModule {
+  id: string;
+  project_id: string | null;
+  module_id: string;
+  name: string;
+  description: string;
+  needs: string[];
+  required_data: string[];
+  preconditions: string[];
+  compatible_with: string[];
+  incompatible_with: string[];
+  priority: number;
+  output_type: string;
+  is_enabled: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface MarketplaceModuleListResponse {
+  modules: MarketplaceModule[];
+  total: number;
+}
+
+export interface MarketplaceSeedResponse {
+  seeded: number;
+  status: string;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Workflow — Enums & Sub-contracts
+// ────────────────────────────────────────────────────────────────────────────
+
+export type WorkflowRolloutMode = "disabled" | "shadow" | "canary" | "active";
+export type CanaryFallbackPolicy = "availability_precommit" | "never";
+
+export interface PlannerBudgets {
+  max_external_llm_calls: number;
+  max_regenerations: number;
+  deadline_ms: number | null;
+}
+
+export interface QualityPolicy {
+  send_threshold: number;
+  regenerate_threshold: number;
+  clarify_threshold: number;
+  max_regenerations: number;
+}
+
+export interface SafetyPolicy {
+  expose_source_summaries: boolean;
+  expose_explanations: boolean;
+  allow_public_sql: boolean;
+  allowed_action_hosts: string[];
+  allowed_action_query_params: string[];
+  allow_action_fragments: boolean;
+}
+
+export interface CapabilityDefinition {
+  capability_id: string;
+  name: string;
+  public_description: string;
+  capabilities: string[];
+  not_capabilities?: string[];
+  dependencies?: string[];
+  conditional_complements?: string[];
+  incompatibilities?: string[];
+  clarification_triggers?: string[];
+  tags?: string[];
+  priority?: number;
+  enabled?: boolean;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Workflow — Settings
+// ────────────────────────────────────────────────────────────────────────────
+
+export interface WorkflowSettingsUpsert {
+  expected_revision: number;
+  is_enabled?: boolean;
+  shadow_mode?: boolean;
+  shadow_sample_rate?: number;
+  allow_host_provider_fallback?: boolean;
+  rollout_mode?: WorkflowRolloutMode | null;
+  canary_sample_rate?: number;
+  canary_epoch?: string | null;
+  canary_fallback_policy?: CanaryFallbackPolicy;
+  engine_version?: string;
+  execution_deadline_ms?: number;
+  active_min_canary_runs?: number;
+  active_max_failure_rate?: number;
+  active_max_p95_latency_ms?: number;
+  active_min_average_quality?: number;
+  llm_external_window_seconds?: number;
+  llm_external_window_limit?: number;
+  llm_external_target_per_100_messages?: number;
+  max_external_llm_calls?: number;
+  max_regenerations?: number;
+  planner_deadline_ms?: number | null;
+  send_threshold?: number;
+  regenerate_threshold?: number;
+  clarify_threshold?: number;
+  expose_source_summaries?: boolean;
+  expose_explanations?: boolean;
+  allow_public_sql?: boolean;
+  allowed_action_hosts?: string[];
+  allowed_action_query_params?: string[];
+  allow_action_fragments?: boolean;
+}
+
+export interface WorkflowSettings {
+  schema_version: string;
+  persisted: boolean;
+  revision: number;
+  is_enabled: boolean;
+  shadow_mode: boolean;
+  shadow_sample_rate: number;
+  allow_host_provider_fallback: boolean;
+  rollout_mode: WorkflowRolloutMode;
+  canary_sample_rate: number;
+  canary_epoch: string;
+  canary_fallback_policy: CanaryFallbackPolicy;
+  engine_version: string;
+  execution_deadline_ms: number;
+  active_min_canary_runs: number;
+  active_max_failure_rate: number;
+  active_max_p95_latency_ms: number;
+  active_min_average_quality: number;
+  current_candidate_id: string | null;
+  evaluation_window_id: string | null;
+  active_certification_id: string | null;
+  active_runtime_enabled: boolean;
+  rollout_generation: number;
+  llm_external_window_seconds: number;
+  llm_external_window_limit: number;
+  llm_external_target_per_100_messages: number;
+  planner_budgets: PlannerBudgets;
+  quality_policy: QualityPolicy;
+  safety_policy: SafetyPolicy;
+  updated_at: string | null;
+}
+
+export interface CapabilityCatalog {
+  schema_version: string;
+  revision: number;
+  catalog_hash: string;
+  is_enabled: boolean;
+  capabilities: CapabilityDefinition[];
+  updated_at: string;
+}
+
+export interface CapabilityCatalogUpsert {
+  expected_revision: number;
+  is_enabled?: boolean;
+  capabilities: CapabilityDefinition[];
+}
+
+export interface ProjectWorkflowConfiguration {
+  project_id: string;
+  settings: WorkflowSettings;
+  capability_catalog: CapabilityCatalog | null;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Workflow — Certification Pipeline
+// ────────────────────────────────────────────────────────────────────────────
+
+export interface WorkflowCandidateManifest {
+  schema_version: string;
+  project_id: string;
+  artifact_digest: string;
+  workflow_contract_version: string;
+  engine_version: string;
+  prompt_bundle_hash: string;
+  provider_bundle_hash: string;
+  settings_hash: string;
+  project_config_hash: string;
+  capability_catalog_hash: string;
+  action_catalog_hash: string;
+}
+
+export interface WorkflowCandidate {
+  candidate_id: string;
+  project_id: string;
+  candidate_hash: string;
+  manifest: WorkflowCandidateManifest;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface WorkflowCandidateCreate {
+  expected_revision: number;
+}
+
+export interface WorkflowEvaluationPolicy {
+  policy_id: string;
+  project_id: string;
+  policy_hash: string;
+  policy: Record<string, unknown>;
+  created_by: string | null;
+  sealed_at: string;
+  created_at: string;
+}
+
+export interface WorkflowEvaluationPolicyCreate {
+  expected_revision: number;
+  policy: Record<string, unknown>;
+}
+
+export interface WorkflowEvaluationWindow {
+  evaluation_window_id: string;
+  project_id: string;
+  candidate_id: string;
+  candidate_hash: string;
+  policy_id: string;
+  campaign_id: string;
+  stage_index: number;
+  canary_sample_rate: number;
+  settings_revision: number;
+  canary_epoch: string;
+  engine_version: string;
+  starts_at: string;
+  not_before: string;
+  ends_at: string;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface WorkflowEvaluationWindowCreate {
+  expected_revision: number;
+  candidate_id: string;
+  policy_id: string;
+}
+
+export interface WorkflowCertifiedPromotion {
+  expected_revision: number;
+}
+
+export interface WorkflowCertification {
+  certification_id: string;
+  project_id: string;
+  evaluation_window_id: string;
+  candidate_id: string;
+  policy_id: string;
+  candidate_hash: string;
+  policy_hash: string;
+  report_hash: string;
+  certification_hash: string;
+  cutoff_at: string;
+  certified_at: string;
+  expires_at: string;
+}
+
+export interface WorkflowLegacyRetirement {
+  retirement_id: string;
+  project_id: string;
+  certification_id: string;
+  candidate_id: string;
+  report_hash: string;
+  retired_at: string;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Workflow — Evaluation & Observability
+// ────────────────────────────────────────────────────────────────────────────
+
+export interface CertifiedEvaluationMetrics {
+  selected_runs: number;
+  independent_runs: number;
+  terminal_runs: number;
+  pending_runs: number;
+  unique_conversations: number;
+  failed_runs: number;
+  failure_rate: number;
+  failure_rate_upper_bound: number;
+  p95_latency_ms: number;
+  average_quality: number;
+  quality_coverage: number;
+  external_calls_per_message: number;
+  estimated_cost_per_100_messages: number;
+  provider_failure_rate: number;
+  provider_failure_rate_upper_bound: number;
+  runtime_denial_rate: number;
+  feedback_coverage: number;
+  negative_feedback_rate: number;
+  negative_feedback_rate_upper_bound: number;
+}
+
+export interface CertifiedEvaluationReport {
+  schema_version: string;
+  project_id: string;
+  evaluation_window_id: string;
+  candidate_id: string;
+  candidate_hash: string;
+  policy_id: string;
+  policy_hash: string;
+  starts_at: string;
+  not_before: string;
+  ends_at: string;
+  cutoff_at: string;
+  eligible: boolean;
+  failed_checks: string[];
+  metrics: CertifiedEvaluationMetrics;
+  strata: Record<string, unknown>[];
+}
+
+export interface ProviderRuntimeEventMetrics {
+  count: number;
+  mean_wait_ms: number;
+  max_wait_ms: number;
+}
+
+export interface LLMBudgetObservability {
+  message_count: number;
+  external_attempt_count: number;
+  external_success_count: number;
+  external_failure_count: number;
+  input_tokens: number;
+  output_tokens: number;
+  estimated_cost_usd: number;
+  p95_latency_ms: number;
+  runtime_events: Record<string, ProviderRuntimeEventMetrics>;
+  external_calls_per_message: number;
+}
+
+export interface WorkflowEngineEvaluation {
+  authoritative: false;
+  project_id: string;
+  eligible_for_active: boolean;
+  failed_checks: string[];
+  run_count: number;
+  failure_rate: number;
+  p95_latency_ms: number;
+  average_quality: number;
+  quality_run_count: number;
+  policy: Record<string, number>;
+  llm_budget: LLMBudgetObservability;
+}
+
+export interface AgentRun {
+  id: string;
+  workflow_trace_id: string;
+  conversation_id: string | null;
+  user_message_id: string | null;
+  snapshot_hash: string;
+  workflow_version: string;
+  run_mode: string;
+  status: string;
+  decision_path: string;
+  provider: string | null;
+  input_hash: string;
+  intent_probabilities: Record<string, unknown> | null;
+  plan_summary: Record<string, unknown> | null;
+  legacy_summary: Record<string, unknown>;
+  comparison: Record<string, unknown>;
+  error_code: string | null;
+  duration_ms: number;
+  llm_call_count: number;
+  created_at: string;
+}
+
+export interface WorkflowRolloutEvent {
+  event_id: string;
+  from_mode: WorkflowRolloutMode;
+  to_mode: WorkflowRolloutMode;
+  reason_code: string;
+  settings_revision_before: number;
+  settings_revision_after: number;
+  rollout_generation: number;
+  evidence: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface WorkflowCertificationSummary {
+  certification_id: string;
+  evaluation_window_id: string;
+  candidate_id: string;
+  policy_id: string;
+  candidate_hash: string;
+  policy_hash: string;
+  report_hash: string;
+  certified_at: string;
+  expires_at: string;
+}
+
+export interface WorkflowRolloutObservability {
+  schema_version: string;
+  project_id: string;
+  rollout_mode: WorkflowRolloutMode;
+  rollout_generation: number;
+  settings_revision: number;
+  evaluation_window_id: string | null;
+  active_certification_id: string | null;
+  legacy_protocol_enabled: boolean;
+  legacy_retirement_id: string | null;
+  active_candidate_id: string | null;
+  active_candidate_hash: string | null;
+  active_expires_at: string | null;
+  controller_running: boolean;
+  controller_healthy: boolean;
+  controller_last_success_at: string | null;
+  controller_last_error_code: string | null;
+  certifications: WorkflowCertificationSummary[];
+  events: WorkflowRolloutEvent[];
+  health_checks: Record<string, unknown>[];
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Evidence Provenance
+// ────────────────────────────────────────────────────────────────────────────
+
+export type EvidenceSourceType =
+  | "db"
+  | "vector"
+  | "tfidf"
+  | "external"
+  | "marketplace"
+  | "cache";
+
+export type EvidenceAuthorityRole =
+  | "authoritative"
+  | "supplementary"
+  | "conflicted"
+  | "suppressed";
+
+export type EvidenceConflictType =
+  | "numeric_mismatch"
+  | "state_mismatch"
+  | "semantic_contradiction"
+  | "temporal_inconsistency"
+  | "availability_conflict";
+
+export type EvidenceConflictSeverity = "info" | "warning" | "blocking";
+
+export interface EvidenceProvenance {
+  id: string;
+  project_id: string;
+  conversation_id: string;
+  user_message_id: string;
+  assistant_message_id: string | null;
+  source_type: EvidenceSourceType;
+  source_module: string;
+  confidence: number;
+  authority_role: EvidenceAuthorityRole;
+  context_count: number;
+  latency_ms: number | null;
+  conflict_ids: string[];
+  created_at: string;
+}
+
+export interface EvidenceConflict {
+  id: string;
+  project_id: string;
+  user_message_id: string;
+  conflict_type: EvidenceConflictType;
+  severity: EvidenceConflictSeverity;
+  source_a: string;
+  source_b: string;
+  subject: string | null;
+  claim_a: string | null;
+  claim_b: string | null;
+  resolution: "source_a" | "source_b" | "clarification" | "unresolved" | null;
+  resolution_reason: string | null;
+  created_at: string;
 }
 
 // ────────────────────────────────────────────────────────────────────────────

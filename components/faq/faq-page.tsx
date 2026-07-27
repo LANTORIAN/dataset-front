@@ -38,16 +38,6 @@ function isFaqFile(filename: string) {
   return filename.startsWith(FAQ_PREFIX) && filename.endsWith(FAQ_EXT);
 }
 
-function parseFaqContent(raw: string): { question: string; answer: string } | null {
-  const qMatch = raw.match(/^Q\s*:\s*(.+)/m);
-  const rMatch = raw.match(/^R\s*:\s*([\s\S]+)/m);
-  if (!qMatch || !rMatch) return null;
-  return {
-    question: qMatch[1].trim(),
-    answer: rMatch[1].trim(),
-  };
-}
-
 function buildFaqFilename(question: string) {
   const slug = question
     .toLowerCase()
@@ -94,7 +84,7 @@ export function FaqPage() {
 
   // Reveal key when project changes
   useEffect(() => {
-    if (!projectId) { setApiKey(""); return; }
+    if (!projectId) { setApiKey(""); return; } // eslint-disable-line react-hooks/set-state-in-effect
     projectsService.revealKey(projectId).then((r) => {
       if (r.ok) setApiKey(r.data.api_key);
     });
@@ -120,7 +110,7 @@ export function FaqPage() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [projectId, apiKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [projectId, apiKey]); // eslint-disable-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
 
   const handleAdd = async () => {
     if (!question.trim() || !answer.trim() || !projectId || !apiKey) return;
@@ -207,7 +197,7 @@ export function FaqPage() {
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   Chaque entrée FAQ est stockée dans la base vectorielle au format{" "}
                   <code className="bg-muted px-1 rounded text-xs">Q: question / R: réponse</code>.
-                  Quand un utilisateur pose une question similaire, l'IA répond directement
+                  Quand un utilisateur pose une question similaire, l&apos;IA répond directement
                   sans passer par le modèle de langage — plus rapide et plus précis.
                 </p>
               </div>
@@ -233,7 +223,7 @@ export function FaqPage() {
                   <HelpCircle className="size-10 text-muted-foreground mb-3" />
                   <p className="text-sm text-muted-foreground font-medium">Aucune entrée FAQ</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Ajoutez des Q&A pour que l'IA réponde instantanément aux questions fréquentes.
+                    Ajoutez des Q&A pour que l&apos;IA réponde instantanément aux questions fréquentes.
                   </p>
                   <Button
                     size="sm" variant="outline" className="mt-4 gap-1.5 text-xs"
@@ -368,7 +358,7 @@ export function FaqPage() {
               />
             </div>
             <p className="text-xs text-muted-foreground">
-              L'entrée sera enregistrée comme fichier texte et indexée automatiquement dans la base vectorielle.
+              L&apos;entrée sera enregistrée comme fichier texte et indexée automatiquement dans la base vectorielle.
             </p>
           </div>
           <DialogFooter>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import {
   MessageSquare, Zap, Clock, ThumbsUp, TrendingUp, TrendingDown,
   Minus, HelpCircle, AlertTriangle, Loader2, RefreshCw, Download,
+  Bug,
 } from "lucide-react";
 import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
@@ -18,7 +19,14 @@ import {
 } from "@/components/ui/table";
 import { analyticsService } from "@/services/analytics.service";
 import { projectsService } from "@/services/projects.service";
-import type { Project, AnalyticsOverview, TopQuestion, FailedQuery, SatisfactionStats } from "@/types";
+import type {
+  Project,
+  AnalyticsOverview,
+  TopQuestion,
+  FailedQuery,
+  SatisfactionStats,
+  ConversationIssues,
+} from "@/types";
 
 const DAYS_OPTIONS = [
   { label: "7 derniers jours", value: "7" },
@@ -55,6 +63,7 @@ export function AnalyticsPage() {
   const [satisfaction, setSatisfaction] = useState<SatisfactionStats | null>(null);
   const [topQuestions, setTopQuestions] = useState<TopQuestion[]>([]);
   const [failedQueries, setFailedQueries] = useState<FailedQuery[]>([]);
+  const [issues, setIssues] = useState<ConversationIssues | null>(null);
 
   // Load project list
   useEffect(() => {
@@ -70,20 +79,22 @@ export function AnalyticsPage() {
     if (!projectId) return;
     setLoading(true);
     const d = Number(days);
-    const [ovR, satR, topR, failR] = await Promise.all([
+    const [ovR, satR, topR, failR, issuesR] = await Promise.all([
       analyticsService.projectOverview(projectId, d),
       analyticsService.satisfaction(projectId, d),
       analyticsService.topQuestions(projectId, 10, d),
       analyticsService.failedQueries(projectId, 20, d),
+      analyticsService.conversationIssues(projectId, 10, d),
     ]);
     if (ovR.ok)   setOverview(ovR.data);
     if (satR.ok)  setSatisfaction(satR.data);
     if (topR.ok)  setTopQuestions(topR.data.questions ?? []);
     if (failR.ok) setFailedQueries(failR.data.queries ?? []);
+    if (issuesR.ok) setIssues(issuesR.data);
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [projectId, days]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [projectId, days]); // eslint-disable-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
 
   const handleExport = async () => {
     if (!projectId) return;
@@ -203,6 +214,64 @@ export function AnalyticsPage() {
             </Card>
           </div>
 
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+            <Card className="border-destructive/30 bg-destructive/5">
+              <CardHeader className="pb-1">
+                <CardDescription className="text-xs flex items-center gap-1.5">
+                  <Bug className="size-3.5" />Non résolus
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">{issues?.unresolved_messages ?? "—"}</p>
+                <p className="text-xs text-muted-foreground">
+                  {issues ? pct(issues.unresolved_rate) : "—"} des messages
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-1">
+                <CardDescription className="text-xs flex items-center gap-1.5">
+                  <AlertTriangle className="size-3.5" />Sans réponse
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">{issues?.unanswered_messages ?? "—"}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-1">
+                <CardDescription className="text-xs flex items-center gap-1.5">
+                  <HelpCircle className="size-3.5" />Incertaines
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">{issues?.uncertain_responses ?? "—"}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-1">
+                <CardDescription className="text-xs flex items-center gap-1.5">
+                  <ThumbsUp className="size-3.5" />Feedbacks négatifs
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">{issues?.negative_feedbacks ?? "—"}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-1">
+                <CardDescription className="text-xs flex items-center gap-1.5">
+                  <Clock className="size-3.5" />P95 latence
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">
+                  {issues ? fmt(issues.p95_response_time_ms) : "—"}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {/* Satisfaction detail */}
             {satisfaction && (
@@ -251,6 +320,39 @@ export function AnalyticsPage() {
                       Aucun feedback sur cette période.
                     </p>
                   )}
+                </CardContent>
+              </Card>
+            )}
+
+            {issues && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Bug className="size-4" />Diagnostic conversations
+                  </CardTitle>
+                  <CardDescription>
+                    {issues.total_user_messages} messages utilisateur analysés
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <dl className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground">Temps moyen</dt>
+                      <dd className="font-medium">{fmt(issues.avg_response_time_ms)}</dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground">Réponses sans certitude</dt>
+                      <dd className="font-medium">{issues.uncertain_responses}</dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground">Messages sans réponse assistant</dt>
+                      <dd className="font-medium">{issues.unanswered_messages}</dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground">Feedbacks négatifs</dt>
+                      <dd className="font-medium">{issues.negative_feedbacks}</dd>
+                    </div>
+                  </dl>
                 </CardContent>
               </Card>
             )}
@@ -346,7 +448,7 @@ export function AnalyticsPage() {
               <CardTitle className="text-base flex items-center gap-2">
                 <AlertTriangle className="size-4 text-destructive" />Requêtes sans réponse
               </CardTitle>
-              <CardDescription>Questions auxquelles l'IA n'a pas pu répondre</CardDescription>
+              <CardDescription>Questions auxquelles l&apos;IA n&apos;a pas pu répondre</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               {failedQueries.length === 0 ? (
@@ -358,7 +460,7 @@ export function AnalyticsPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Requête</TableHead>
-                      <TableHead className="w-32">Type d'erreur</TableHead>
+                      <TableHead className="w-32">Type d&apos;erreur</TableHead>
                       <TableHead className="w-16 text-right">Nb</TableHead>
                     </TableRow>
                   </TableHeader>

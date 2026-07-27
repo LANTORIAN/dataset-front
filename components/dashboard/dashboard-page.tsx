@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { FolderOpen, FileText, MessageSquare, Zap, ArrowRight } from "lucide-react";
+import { ArrowRight, Bot, Database, FileText, FolderOpen, GitBranch, Globe2, MessageSquare, ShieldCheck, ShoppingBag, Zap } from "lucide-react";
 import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
 } from "@/components/ui/card";
@@ -18,6 +18,15 @@ const STAT_CARDS = [
   { title: "Fichiers indexés", icon: FileText,      color: "text-chart-2", bg: "bg-chart-2-surface", href: "/projects" },
   { title: "Conversations",    icon: MessageSquare, color: "text-chart-3", bg: "bg-chart-3-surface", href: "/chat"     },
   { title: "Requêtes IA",      icon: Zap,           color: "text-chart-4", bg: "bg-chart-4-surface", href: "/chat"     },
+];
+
+const AGENTIC_MODULES = [
+  { label: "RAG", detail: "documents indexés", icon: FileText },
+  { label: "SQL", detail: "bases projet", icon: Database },
+  { label: "APIs", detail: "sources externes", icon: Globe2 },
+  { label: "Planner", detail: "routage dynamique", icon: GitBranch },
+  { label: "Actions", detail: "marketplace", icon: ShoppingBag },
+  { label: "Guardrails", detail: "preuves & conflits", icon: ShieldCheck },
 ];
 
 export function DashboardPage() {
@@ -65,7 +74,7 @@ export function DashboardPage() {
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {STAT_CARDS.map((card, i) => (
-          <Card key={card.title} className="hover:shadow-md transition-shadow">
+          <Card key={card.title} className={`hover:shadow-md transition-shadow animate-fade-in-up stagger-${i + 1}`}>
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
               <CardTitle className="text-sm font-medium text-muted-foreground">{card.title}</CardTitle>
               <div className={`rounded-md p-1.5 ${card.bg}`}>
@@ -73,11 +82,46 @@ export function DashboardPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold">{loading ? "…" : stats[i]}</p>
+              {loading ? (
+                <div className="skeleton h-7 w-16 rounded" />
+              ) : (
+                <p className="text-2xl font-bold">{stats[i]}</p>
+              )}
             </CardContent>
           </Card>
         ))}
       </div>
+
+      <Card className="overflow-hidden border-primary/15 bg-gradient-to-br from-background via-muted/30 to-primary/10 animate-fade-in-up stagger-5">
+        <CardContent className="p-0">
+          <div className="grid gap-0 lg:grid-cols-[1.2fr_1fr]">
+            <div className="space-y-4 p-6">
+              <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                <Bot className="size-3.5" /> Agentique multi-module actif
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold tracking-tight">Une réponse, plusieurs moteurs coordonnés.</h3>
+                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                  Le backend peut router chaque demande vers les fichiers RAG, la base SQL en lecture seule,
+                  les APIs de connaissance, la mémoire de suivi DB et les recommandations marketplace, puis afficher les preuves utilisées.
+                </p>
+              </div>
+              <Button asChild size="sm" className="gap-2">
+                <Link href="/chat"><MessageSquare className="size-4" /> Tester dans le chat</Link>
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 gap-2 border-t border-border/60 bg-background/45 p-4 lg:border-l lg:border-t-0">
+              {AGENTIC_MODULES.map((item) => (
+                <div key={item.label} className="rounded-2xl border border-border bg-background/80 p-3 shadow-sm">
+                  <item.icon className="mb-2 size-4 text-primary" />
+                  <p className="text-sm font-medium">{item.label}</p>
+                  <p className="text-xs text-muted-foreground">{item.detail}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>

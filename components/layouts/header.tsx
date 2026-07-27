@@ -26,7 +26,7 @@ export function Header({ onToggleSidebar, title }: HeaderProps) {
   const { theme, setTheme } = useTheme();
   const { user, logout, isAdmin } = useAuth();
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  useEffect(() => setMounted(true), []); // eslint-disable-line react-hooks/set-state-in-effect
 
   const initials = (user?.display_name ?? user?.username ?? "?")
     .split(" ")
@@ -49,7 +49,7 @@ export function Header({ onToggleSidebar, title }: HeaderProps) {
         </Button>
 
         {title && (
-          <h1 className="text-sm font-semibold text-foreground truncate">{title}</h1>
+          <h1 className="text-sm font-semibold text-foreground truncate" title={title}>{title}</h1>
         )}
 
         <div className="ml-auto flex items-center gap-1">

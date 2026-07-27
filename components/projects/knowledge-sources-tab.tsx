@@ -123,7 +123,7 @@ export function KnowledgeSourcesTab({ projectId, apiKey }: Props) {
     }).finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, [projectId, apiKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [projectId, apiKey]); // eslint-disable-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
 
   const handleToggle = async (source: KnowledgeSource) => {
     const r = await knowledgeSourcesService.toggle(projectId, source.id, apiKey, !source.is_enabled);
@@ -378,7 +378,7 @@ function SourceFormDialog({
   // Reset form when dialog opens/switches target
   useEffect(() => {
     if (open) {
-      setForm(editTarget ? sourceToForm(editTarget) : EMPTY_FORM);
+      setForm(editTarget ? sourceToForm(editTarget) : EMPTY_FORM); // eslint-disable-line react-hooks/set-state-in-effect
       setShowAdv(false);
     }
   }, [open, editTarget]);

@@ -16,7 +16,7 @@ export function BackendStatusBanner() {
 
   useEffect(() => {
     if (status === "offline") {
-      setWasOffline(true);
+      setWasOffline(true); // eslint-disable-line react-hooks/set-state-in-effect
       setRecovered(false);
       setShow(true);
     }

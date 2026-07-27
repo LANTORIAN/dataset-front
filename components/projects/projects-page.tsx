@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   FolderOpen, FileText, MessageSquare, MoreHorizontal, Trash2,
-  Search, SortAsc, SortDesc, Pencil,
+  Search, SortAsc, SortDesc, Pencil, X,
 } from "lucide-react";
 import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
@@ -56,11 +56,11 @@ export function ProjectsPage() {
   const debouncedSearch = useDebounce(search, 400);
 
   // Reset to page 1 when filters/search change (not when page or refreshKey change)
-  useEffect(() => { setPage(1); }, [debouncedSearch, sortBy, order]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, sortBy, order]); // eslint-disable-line react-hooks/set-state-in-effect
 
   // Single load effect
   useEffect(() => {
-    setLoading(true);
+    setLoading(true); // eslint-disable-line react-hooks/set-state-in-effect
     projectsService.list({
       page,
       limit: PAGE_SIZE,
@@ -74,7 +74,6 @@ export function ProjectsPage() {
         setTotal(result.data.pagination.total);
       }
     }).finally(() => setLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, debouncedSearch, sortBy, order, refreshKey]);
 
   const visibleProjects = statusFilter === "all"
@@ -115,8 +114,18 @@ export function ProjectsPage() {
             placeholder="Rechercher un projet…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-8 h-9"
+            className="pl-8 pr-8 h-9"
           />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="absolute right-2 top-2.5 rounded-sm p-0.5 text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Effacer la recherche"
+            >
+              <X className="size-3.5" />
+            </button>
+          )}
         </div>
 
         <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
@@ -164,24 +173,28 @@ export function ProjectsPage() {
           ))}
         </div>
       ) : visibleProjects.length === 0 ? (
-        <Card className="flex flex-col items-center justify-center py-16">
-          <FolderOpen className="size-12 text-muted-foreground mb-4" />
-          <p className="text-muted-foreground font-medium">
+        <Card className="flex flex-col items-center justify-center py-16 animate-fade-in">
+          <div className="rounded-full bg-muted p-3 mb-4">
+            <FolderOpen className="size-6 text-muted-foreground" />
+          </div>
+          <p className="text-sm font-medium">
             {search || statusFilter !== "all" ? "Aucun résultat" : "Aucun projet"}
           </p>
-          <p className="text-sm text-muted-foreground mt-1 mb-4">
+          <p className="text-xs text-muted-foreground mt-1 max-w-xs text-center">
             {search || statusFilter !== "all"
               ? "Modifiez vos filtres pour afficher des projets."
               : "Créez votre premier projet pour commencer."}
           </p>
           {!search && statusFilter === "all" && (
-            <CreateProjectDialog onCreated={refresh} />
+            <div className="mt-4">
+              <CreateProjectDialog onCreated={refresh} />
+            </div>
           )}
         </Card>
       ) : (
         <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {visibleProjects.map((project) => (
-            <Card key={project.id} className="group transition-all hover:-translate-y-0.5 hover:shadow-lg">
+          {visibleProjects.map((project, i) => (
+            <Card key={project.id} className={`group transition-all hover:-translate-y-0.5 hover:shadow-lg animate-fade-in-up stagger-${Math.min(i + 1, 6)}`}>
               <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <FolderOpen className="size-4 text-primary shrink-0" />
