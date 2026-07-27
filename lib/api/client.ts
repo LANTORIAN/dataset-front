@@ -2,6 +2,12 @@ import { parseApiError } from "./errors";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8087/api/v1";
 
+function apiBaseFor(version: "v1" | "v2"): string {
+  return version === "v2"
+    ? `${API_BASE.replace(/\/v1\/?$/, "")}/v2`
+    : API_BASE;
+}
+
 // ── In-memory token store ──────────────────────────────────────────────────
 //
 // Access token  : stocké en mémoire (variable module).
@@ -137,10 +143,18 @@ interface RequestOptions {
   auth?: AuthMode;
   headers?: Record<string, string>;
   raw?: boolean;
+  apiVersion?: "v1" | "v2";
 }
 
 async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = "GET", body, auth = { type: "bearer" }, headers = {}, raw = false } = options;
+  const {
+    method = "GET",
+    body,
+    auth = { type: "bearer" },
+    headers = {},
+    raw = false,
+    apiVersion = "v1",
+  } = options;
 
   const requestHeaders: Record<string, string> = {
     ...(!raw && body !== undefined ? { "Content-Type": "application/json" } : {}),
@@ -162,13 +176,14 @@ async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<
     Object.assign(requestHeaders, buildAuthHeaders(auth));
   }
 
-  let res = await fetch(`${API_BASE}${path}`, init);
+  const apiBase = apiBaseFor(apiVersion);
+  let res = await fetch(`${apiBase}${path}`, init);
 
   if (!res.ok && auth.type === "bearer" && res.status === 401) {
     const refreshed = await tryRefreshAccessToken();
     if (refreshed) {
       Object.assign(requestHeaders, buildAuthHeaders(auth));
-      res = await fetch(`${API_BASE}${path}`, init);
+      res = await fetch(`${apiBase}${path}`, init);
     } else {
       notifyAuthExpired();
     }
@@ -193,7 +208,40 @@ export const bearerDel   = <T>(path: string)                 => apiFetch<T>(path
 // ── X-API-Key (project key) helpers ───────────────────────────────────────
 
 export const keyGet  = <T>(path: string, k: string)                 => apiFetch<T>(path, { auth: { type: "api-key", key: k } });
+export const keyGetV2 = <T>(path: string, k: string) => apiFetch<T>(path, { auth: { type: "api-key", key: k }, apiVersion: "v2" });
 export const keyPost = <T>(path: string, k: string, body?: unknown) => apiFetch<T>(path, { method: "POST",   body, auth: { type: "api-key", key: k } });
+export const keyPostV2 = <T>(path: string, k: string, body?: unknown) => apiFetch<T>(path, { method: "POST", body, auth: { type: "api-key", key: k }, apiVersion: "v2" });
+
+let publicChatV2Available: boolean | undefined;
+
+export async function probePublicChatV2(
+  apiKey: string,
+  signal?: AbortSignal
+): Promise<boolean> {
+  if (publicChatV2Available !== undefined) return publicChatV2Available;
+  const response = await fetch(`${apiBaseFor("v2")}/chat/capabilities`, {
+    method: "GET",
+    headers: { "X-API-Key": apiKey },
+    signal,
+  });
+  if (response.status === 404) {
+    publicChatV2Available = false;
+    return false;
+  }
+  if (!response.ok) throw await parseApiError(response);
+  const body = await response.json().catch(() => null) as Record<string, unknown> | null;
+  if (
+    body?.schema_version !== "chat.capabilities.v2" ||
+    body.request_schema !== "chat.request.v2" ||
+    body.response_schema !== "chat.public.v2" ||
+    body.sse_schema !== "chat.sse.v2" ||
+    body.terminal_event !== "final"
+  ) {
+    throw new Error("Contrat public v2 invalide");
+  }
+  publicChatV2Available = true;
+  return true;
+}
 export const keyPut  = <T>(path: string, k: string, body?: unknown) => apiFetch<T>(path, { method: "PUT",    body, auth: { type: "api-key", key: k } });
 export const keyDel  = <T>(path: string, k: string)                 => apiFetch<T>(path, { method: "DELETE",       auth: { type: "api-key", key: k } });
 
@@ -252,12 +300,17 @@ export interface StreamOptions {
   apiKey: string;
   conversationId?: string;
   sessionId?: string;
+  requestId?: string;
+  contractVersion?: "v1" | "v2";
+  clarificationResponse?: unknown;
 }
 
 export interface ChatStreamCallbacks {
   /** Called for each SSE event with its named type and raw data string. */
   onEvent: (eventName: string, data: string) => void;
   onError: () => void;
+  onHttpError?: (status: number, body: unknown) => void;
+  onEnd?: () => void;
 }
 
 export function createChatStream(
@@ -266,11 +319,19 @@ export function createChatStream(
 ): { stop: () => void } {
   const controller = new AbortController();
 
+  const contractVersion = opts.contractVersion ?? "v1";
   const body: Record<string, unknown> = { message: opts.message };
   if (opts.conversationId) body.conversation_id = opts.conversationId;
   if (opts.sessionId)      body.session_id      = opts.sessionId;
+  if (opts.requestId)      body.request_id      = opts.requestId;
+  if (opts.clarificationResponse) {
+    body.clarification_response = opts.clarificationResponse;
+  }
+  if (contractVersion === "v2") body.schema_version = "chat.request.v2";
 
-  fetch(`${API_BASE}/chat/stream`, {
+  const apiBase = apiBaseFor(contractVersion);
+
+  fetch(`${apiBase}/chat/stream`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -282,7 +343,17 @@ export function createChatStream(
     .then(async (res) => {
       if (!res.ok || !res.body) {
         if (res.status === 401) notifyAuthExpired();
-        callbacks.onError();
+        let responseBody: unknown = null;
+        try {
+          responseBody = await res.json();
+        } catch {
+          responseBody = null;
+        }
+        if (callbacks.onHttpError) {
+          callbacks.onHttpError(res.status, responseBody);
+        } else {
+          callbacks.onError();
+        }
         return;
       }
       const reader  = res.body.getReader();
@@ -301,17 +372,23 @@ export function createChatStream(
 
       while (true) {
         const { done, value } = await reader.read();
-        if (done) { dispatch(); break; }
+        if (done) {
+          decoder.decode();
+          callbacks.onEnd?.();
+          break;
+        }
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
         buffer = lines.pop() ?? "";
-        for (const line of lines) {
+        for (const rawLine of lines) {
+          const line = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
           if (line === "") {
             dispatch(); // blank line = end of event block
-          } else if (line.startsWith("event: ")) {
-            currentEvent = line.slice(7).trim();
-          } else if (line.startsWith("data: ")) {
-            currentData = line.slice(6);
+          } else if (line.startsWith("event:")) {
+            currentEvent = line.slice(6).trim();
+          } else if (line.startsWith("data:")) {
+            const value = line.slice(5).replace(/^ /, "");
+            currentData += `${currentData ? "\n" : ""}${value}`;
           }
         }
       }

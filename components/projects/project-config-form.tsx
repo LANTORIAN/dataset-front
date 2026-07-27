@@ -60,6 +60,7 @@ const USAGE_ORDER: ProjectLLMUsage[] = [
   "final_response",
   "fast_agents",
   "vanna_sql",
+  "semantic_critic",
 ];
 
 const USAGE_LABELS: Record<ProjectLLMUsage, { title: string; desc: string }> = {
@@ -74,6 +75,10 @@ const USAGE_LABELS: Record<ProjectLLMUsage, { title: string; desc: string }> = {
   vanna_sql: {
     title: "Vanna text-to-SQL",
     desc: "LLM utilisé pour transformer une question en SQL.",
+  },
+  semantic_critic: {
+    title: "Critic sémantique",
+    desc: "Vérification indépendante conditionnelle des synthèses multi-sources.",
   },
 };
 
@@ -104,6 +109,11 @@ function createProvider(
       temperature: usage === "fast_agents" ? 0 : 0.3,
       max_tokens: usage === "fast_agents" ? 200 : 1200,
       timeout_seconds: 30,
+      max_concurrency: 4,
+      max_project_concurrency: 2,
+      queue_timeout_ms: 1000,
+      input_cost_per_million_usd: null,
+      output_cost_per_million_usd: null,
       api_key: "",
     };
   }
@@ -121,6 +131,11 @@ function createProvider(
       temperature: usage === "fast_agents" ? 0 : 0.3,
       max_tokens: null,
       timeout_seconds: 60,
+      max_concurrency: null,
+      max_project_concurrency: null,
+      queue_timeout_ms: null,
+      input_cost_per_million_usd: null,
+      output_cost_per_million_usd: null,
     };
   }
   return {
@@ -136,6 +151,11 @@ function createProvider(
     temperature: usage === "fast_agents" ? 0 : 0.2,
     max_tokens: usage === "fast_agents" ? 200 : 1200,
     timeout_seconds: usage === "fast_agents" ? 15 : 30,
+    max_concurrency: 4,
+    max_project_concurrency: 2,
+    queue_timeout_ms: 1000,
+    input_cost_per_million_usd: null,
+    output_cost_per_million_usd: null,
     api_key: "",
   };
 }
@@ -160,6 +180,11 @@ function toPayload(provider: EditableProvider): UpsertProjectLLMProviderPayload 
     temperature: provider.temperature,
     max_tokens: provider.max_tokens,
     timeout_seconds: provider.timeout_seconds || 30,
+    max_concurrency: provider.max_concurrency,
+    max_project_concurrency: provider.max_project_concurrency,
+    queue_timeout_ms: provider.queue_timeout_ms,
+    input_cost_per_million_usd: provider.input_cost_per_million_usd,
+    output_cost_per_million_usd: provider.output_cost_per_million_usd,
   };
 }
 
@@ -261,6 +286,7 @@ export function ProjectConfigForm({ project, onSaved }: Props) {
       final_response: [],
       fast_agents: [],
       vanna_sql: [],
+      semantic_critic: [],
     };
     for (const provider of llmProviders) grouped[provider.usage].push(provider);
     for (const usage of USAGE_ORDER) {
@@ -654,6 +680,26 @@ export function ProjectConfigForm({ project, onSaved }: Props) {
                             <div className="space-y-1.5">
                               <Label className="text-xs">Max tokens</Label>
                               <Input type="number" min={1} value={provider.max_tokens ?? ""} onChange={(e) => updateProvider(provider, { max_tokens: e.target.value === "" ? null : Number(e.target.value) })} className="h-8 text-xs" placeholder="Auto" />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs">Concurrence provider</Label>
+                              <Input type="number" min={1} max={100} value={provider.max_concurrency ?? ""} onChange={(e) => updateProvider(provider, { max_concurrency: e.target.value === "" ? null : Number(e.target.value) })} className="h-8 text-xs" placeholder="4" />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs">Concurrence projet</Label>
+                              <Input type="number" min={1} max={100} value={provider.max_project_concurrency ?? ""} onChange={(e) => updateProvider(provider, { max_project_concurrency: e.target.value === "" ? null : Number(e.target.value) })} className="h-8 text-xs" placeholder="2" />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs">Attente file (ms)</Label>
+                              <Input type="number" min={0} max={30000} value={provider.queue_timeout_ms ?? ""} onChange={(e) => updateProvider(provider, { queue_timeout_ms: e.target.value === "" ? null : Number(e.target.value) })} className="h-8 text-xs" placeholder="1000" />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs">USD / M tokens entrée</Label>
+                              <Input type="number" min={0} step={0.000001} value={provider.input_cost_per_million_usd ?? ""} onChange={(e) => updateProvider(provider, { input_cost_per_million_usd: e.target.value === "" ? null : Number(e.target.value) })} className="h-8 text-xs" placeholder="0" />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs">USD / M tokens sortie</Label>
+                              <Input type="number" min={0} step={0.000001} value={provider.output_cost_per_million_usd ?? ""} onChange={(e) => updateProvider(provider, { output_cost_per_million_usd: e.target.value === "" ? null : Number(e.target.value) })} className="h-8 text-xs" placeholder="0" />
                             </div>
                           </div>
 

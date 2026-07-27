@@ -270,3 +270,141 @@
   background-size: 200% 100%;
   animation: doc-shimmer 1.6s linear infinite;
 }
+
+/* ── Stagger entrance animations ─────────────────────────────────────── */
+@keyframes fade-in-up {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes scale-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slide-in-right {
+  0% {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 400ms ease-out both;
+}
+
+.animate-fade-in {
+  animation: fade-in 300ms ease-out both;
+}
+
+.animate-scale-in {
+  animation: scale-in 300ms ease-out both;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 300ms ease-out both;
+}
+
+/* Stagger delay utilities */
+.stagger-1 { animation-delay: 50ms; }
+.stagger-2 { animation-delay: 100ms; }
+.stagger-3 { animation-delay: 150ms; }
+.stagger-4 { animation-delay: 200ms; }
+.stagger-5 { animation-delay: 250ms; }
+.stagger-6 { animation-delay: 300ms; }
+
+/* ── Reduced motion ──────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in-up,
+  .animate-fade-in,
+  .animate-scale-in,
+  .animate-slide-in-right,
+  .animate-doc-float,
+  .animate-doc-reveal {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .stagger-1, .stagger-2, .stagger-3,
+  .stagger-4, .stagger-5, .stagger-6 {
+    animation-delay: 0ms !important;
+  }
+}
+
+/* ── Table scroll hint (gradient fade at edges) ──────────────────────── */
+.table-scroll-container {
+  position: relative;
+}
+.table-scroll-container::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 24px;
+  pointer-events: none;
+  background: linear-gradient(to left, var(--color-background), transparent);
+  opacity: 0;
+  transition: opacity 200ms;
+}
+.table-scroll-container:has(:is(table):not(:last-child))::after,
+.table-scroll-container[data-scrollable="true"]::after {
+  opacity: 1;
+}
+
+/* ── Skeleton loading utilities ──────────────────────────────────────── */
+.skeleton {
+  background: var(--color-muted);
+  border-radius: var(--radius-md);
+  animation: doc-shimmer 1.6s linear infinite;
+  background: linear-gradient(
+    90deg,
+    var(--color-muted) 20%,
+    color-mix(in oklab, var(--color-muted) 60%, var(--color-background)) 50%,
+    var(--color-muted) 80%
+  );
+  background-size: 200% 100%;
+}
+
+/* ── Smooth tab content transitions ──────────────────────────────────── */
+[data-state="active"][role="tabpanel"] {
+  animation: fade-in 200ms ease-out;
+}
+
+/* ── Interactive feedback ────────────────────────────────────────────── */
+.interactive-row {
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+.interactive-row:hover {
+  background-color: color-mix(in oklab, var(--color-muted) 50%, transparent);
+}
+.interactive-row:active {
+  background-color: var(--color-muted);
+}
+.interactive-row:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
+}

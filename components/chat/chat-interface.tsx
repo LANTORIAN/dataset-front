@@ -23,7 +23,11 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { streamChat } from "@/services/chat.service";
+import {
+  confirmPublicChatAction,
+  streamChat,
+} from "@/services/chat.service";
+import type { ClarificationResponsePayload } from "@/services/chat.service";
 import { conversationsService } from "@/services/conversations.service";
 import { feedbackService, NEGATIVE_CATEGORIES } from "@/services/feedback.service";
 import type { FeedbackRating } from "@/services/feedback.service";
@@ -33,6 +37,9 @@ import type {
   ConversationMessage,
   NLUResult,
   RecoveryMetadata,
+  PublicChatActionV2,
+  PublicChatClarificationV2,
+  PublicChatResponseV2,
 } from "@/types";
 import { useAuth } from "@/lib/context/auth-context";
 import { MindLogo } from "@/components/branding/mind-logo";
@@ -63,6 +70,47 @@ interface UiMessage extends ConversationMessage {
   recovery_used?: boolean;
   recovery_reason?: string;
   recovery_actions?: string[];
+  public_response?: PublicChatResponseV2;
+}
+
+function mergeConversationMessages(
+  history: ConversationMessage[],
+  current: UiMessage[],
+  conversationId: string
+): UiMessage[] {
+  const currentConversation = current.filter(
+    (message) => message.conversation_id === conversationId
+  );
+  const currentByBackendId = new Map(
+    currentConversation.map((message) => [message.backend_id ?? message.id, message])
+  );
+  const seen = new Set<string>();
+  const merged = history.map((message) => {
+    seen.add(message.id);
+    const existing = currentByBackendId.get(message.id);
+    const historyWithPublic = message as ConversationMessage & {
+      public_response?: PublicChatResponseV2 | null;
+    };
+    return existing
+      ? ({
+          ...message,
+          ...existing,
+          public_response: Object.prototype.hasOwnProperty.call(
+            historyWithPublic,
+            "public_response"
+          )
+            ? historyWithPublic.public_response ?? undefined
+            : existing.public_response,
+          backend_id: message.id,
+          streaming: false,
+        } as UiMessage)
+      : ({ ...message, backend_id: message.id } as UiMessage);
+  });
+  for (const message of currentConversation) {
+    const backendId = message.backend_id ?? message.id;
+    if (!seen.has(backendId)) merged.push(message);
+  }
+  return merged;
 }
 
 type ProgressStep = { step: string; message: string };
@@ -181,9 +229,12 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
   const [activeConvId, setActiveConvId] = useState(conversationId);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stopRef   = useRef<(() => void) | null>(null);
+  const sendingRef = useRef(false);
+  const historyLoadRef = useRef(0);
 
   // Load conversation history
   useEffect(() => {
+    const loadVersion = ++historyLoadRef.current;
     if (!isStreaming && conversationId !== activeConvId) {
       const nextConversationId = conversationId;
       const timer = window.setTimeout(() => {
@@ -194,17 +245,21 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
     if (isStreaming) return;
     if (!conversationId || !project) {
       const timer = window.setTimeout(() => {
-        setMessages([]);
+        if (historyLoadRef.current === loadVersion) setMessages([]);
       }, 0);
       return () => window.clearTimeout(timer);
     }
     if (!apiKey) return;
     conversationsService.messages(conversationId, apiKey).then((r) => {
-      if (r.ok) {
-        // For history messages, id IS the real backend message id
-        setMessages(r.data.messages.map((m) => ({ ...m, backend_id: m.id }) as UiMessage));
+      if (r.ok && historyLoadRef.current === loadVersion) {
+        setMessages((current) =>
+          mergeConversationMessages(r.data.messages, current, conversationId)
+        );
       }
     });
+    return () => {
+      if (historyLoadRef.current === loadVersion) historyLoadRef.current += 1;
+    };
   }, [conversationId, project, apiKey, isStreaming, activeConvId]);
 
   // Auto-scroll
@@ -212,8 +267,15 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
 
-  const sendMessage = async () => {
-    if (!input.trim() || !project || !apiKey || isStreaming) return;
+  const sendMessage = async (turn?: {
+    content: string;
+    clarificationResponse: ClarificationResponsePayload;
+  }) => {
+    const content = turn?.content.trim() ?? input.trim();
+    if (!content || !project || !apiKey || isStreaming || sendingRef.current) {
+      return false;
+    }
+    sendingRef.current = true;
 
     let convId = activeConvId;
 
@@ -221,8 +283,9 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
     if (!convId) {
       const result = await conversationsService.create(apiKey);
       if (!result.ok) {
+        sendingRef.current = false;
         toast.error("Impossible de créer une conversation");
-        return;
+        return false;
       }
       convId = result.data.id;
       setActiveConvId(convId);
@@ -233,7 +296,7 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
       id:              crypto.randomUUID(),
       conversation_id: convId,
       role:            "user",
-      content:         input.trim(),
+      content,
       timestamp:       new Date().toISOString(),
     };
     const assistantId = crypto.randomUUID();
@@ -249,12 +312,18 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
     };
 
     setMessages((prev) => [...prev, userMsg, assistantMsg]);
-    setInput("");
+    if (!turn) setInput("");
     setIsStreaming(true);
     stopRef.current?.();
 
-    const { stop } = streamChat(
-      { message: userMsg.content, apiKey, conversationId: convId },
+    const { stop, completion } = streamChat(
+      {
+        message: userMsg.content,
+        apiKey,
+        conversationId: convId,
+        requestId: userMsg.id,
+        clarificationResponse: turn?.clarificationResponse,
+      },
       {
         onChunk: (text) =>
           setMessages((prev) =>
@@ -317,15 +386,17 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
                     marketplace_plan: meta.marketplacePlan,
                     recovery_used: meta.recoveryUsed,
                     recovery_reason: meta.recoveryReason,
-                    recovery_actions: meta.recoveryActions,
+                     recovery_actions: meta.recoveryActions,
+                     public_response: meta.publicResponse,
                     progress_steps: m.progress_steps ?? [],
                     trace_events: m.trace_events ?? [],
                   }
                 : m
             )
           );
-          setIsStreaming(false);
-          stopRef.current = null;
+           setIsStreaming(false);
+           sendingRef.current = false;
+           stopRef.current = null;
         },
 
         onError: (msg) => {
@@ -337,18 +408,21 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
                 : m
             )
           );
-          setIsStreaming(false);
-          stopRef.current = null;
+           setIsStreaming(false);
+           sendingRef.current = false;
+           stopRef.current = null;
         },
       }
     );
 
     stopRef.current = stop;
+    return completion;
   };
 
   const stopStream = () => {
     stopRef.current?.();
     stopRef.current = null;
+    sendingRef.current = false;
     setIsStreaming(false);
     setMessages((prev) => prev.map((m) => m.streaming ? { ...m, streaming: false } : m));
   };
@@ -368,7 +442,70 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
     setMessages((prev) =>
       prev.map((m) => m.id === localId ? { ...m, feedback: rating } : m)
     );
-    await feedbackService.create(backendId, rating, apiKey, comment, categories);
+    const result = await feedbackService.create(
+      backendId,
+      rating,
+      apiKey,
+      comment,
+      categories
+    );
+    if (!result.ok) {
+      setMessages((prev) =>
+        prev.map((m) => m.id === localId ? { ...m, feedback: undefined } : m)
+      );
+      toast.error("Le feedback n’a pas pu être enregistré");
+    }
+  };
+
+  const handlePublicAction = async (
+    response: PublicChatResponseV2,
+    action: PublicChatActionV2
+  ) => {
+    const actionInstanceId = action.action_instance_id;
+    if (
+      action.confirmation_required &&
+      (!actionInstanceId || !action.confirmation_token)
+    ) {
+      throw new Error("invalid_confirmation_metadata");
+    }
+    if (!action.confirmation_required) {
+      if (
+        action.status !== "ready" ||
+        action.action_instance_id !== null ||
+        action.confirmation_token !== null
+      ) {
+        throw new Error("invalid_ready_action");
+      }
+      window.location.assign(action.url);
+      return;
+    }
+    if (!actionInstanceId) throw new Error("invalid_action_instance");
+    const confirmed = await confirmPublicChatAction(
+      action,
+      response.conversation_id,
+      apiKey,
+      actionInstanceId
+    );
+    window.location.assign(confirmed.url);
+  };
+
+  const submitClarification = async (
+    clarification: PublicChatClarificationV2,
+    answers: string[]
+  ) => {
+    const clarificationResponse: ClarificationResponsePayload = {
+      set_id: clarification.set_id,
+      memory_revision: clarification.memory_revision,
+      answers: clarification.question_ids.map((questionId, index) => ({
+        question_id: questionId,
+        value: answers[index]?.trim() ?? "",
+      })),
+    };
+    const content = clarification.questions
+      .map((question, index) => `${question}\n${answers[index]?.trim() ?? ""}`)
+      .join("\n\n");
+    const completed = await sendMessage({ content, clarificationResponse });
+    if (!completed) throw new Error("clarification_not_committed");
   };
 
   if (!project) {
@@ -447,6 +584,8 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
                   if (!msg.backend_id) return;
                   handleFeedback(msg.id, msg.backend_id, rating, comment, categories);
                 }}
+                onPublicAction={handlePublicAction}
+                onSubmitClarification={submitClarification}
               />
             ))}
           </div>
@@ -471,7 +610,7 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
                 <Loader2 className="size-4 animate-spin" />
               </Button>
             ) : (
-              <Button size="icon" className="size-8 shrink-0" onClick={sendMessage} disabled={!input.trim()}>
+              <Button size="icon" className="size-8 shrink-0" onClick={() => sendMessage()} disabled={!input.trim()}>
                 <Send className="size-4" />
               </Button>
             )}
@@ -492,6 +631,14 @@ interface BubbleProps {
   isAdmin?: boolean;
   onStop?: () => void;
   onFeedback: (rating: FeedbackRating, comment?: string, categories?: string[]) => void;
+  onPublicAction: (
+    response: PublicChatResponseV2,
+    action: PublicChatActionV2
+  ) => Promise<void>;
+  onSubmitClarification: (
+    clarification: PublicChatClarificationV2,
+    answers: string[]
+  ) => Promise<void>;
 }
 
 type ParsedTable = {
@@ -1191,7 +1338,159 @@ function AgenticThinking({
   );
 }
 
-function MessageBubble({ message, isAdmin, onStop, onFeedback }: BubbleProps) {
+function PublicResponsePanel({
+  response,
+  onPublicAction,
+  onSubmitClarification,
+}: {
+  response: PublicChatResponseV2;
+  onPublicAction: BubbleProps["onPublicAction"];
+  onSubmitClarification: BubbleProps["onSubmitClarification"];
+}) {
+  const clarification = response.clarification;
+  const [answers, setAnswers] = useState<string[]>(
+    () => clarification?.questions.map(() => "") ?? []
+  );
+  const [submittingClarification, setSubmittingClarification] = useState(false);
+  const [clarificationSubmitted, setClarificationSubmitted] = useState(false);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+
+  const submitAnswers = async () => {
+    if (!clarification || answers.some((answer) => !answer.trim())) return;
+    setSubmittingClarification(true);
+    try {
+      await onSubmitClarification(clarification, answers);
+      setClarificationSubmitted(true);
+    } catch {
+      toast.error("Impossible d’envoyer la clarification");
+    } finally {
+      setSubmittingClarification(false);
+    }
+  };
+
+  const runAction = async (action: PublicChatActionV2) => {
+    setPendingAction(action.action_id);
+    try {
+      await onPublicAction(response, action);
+    } catch {
+      toast.error("Cette action n’est plus disponible");
+      setPendingAction(null);
+    }
+  };
+
+  return (
+    <div className="mt-3 space-y-3 border-t border-border/50 pt-3">
+      {response.recommendations.length > 0 && (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {response.recommendations.map((recommendation) => (
+            <div
+              key={recommendation.capability_id}
+              className="rounded-xl border border-primary/15 bg-background/55 p-3"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-medium">{recommendation.name}</p>
+                {recommendation.optional && (
+                  <Badge variant="outline" className="text-[10px]">Complément</Badge>
+                )}
+              </div>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                {recommendation.description}
+              </p>
+              {recommendation.reasons.map((reason) => (
+                <p key={reason} className="mt-2 text-xs text-foreground/80">{reason}</p>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {clarification && !clarificationSubmitted && (
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
+          <p className="text-xs font-medium text-primary">Précision nécessaire</p>
+          <p className="mt-1 text-xs text-muted-foreground">{clarification.reason}</p>
+          <div className="mt-3 space-y-3">
+            {clarification.questions.map((question, index) => (
+              <label key={clarification.question_ids[index]} className="block space-y-1.5">
+                <span className="text-xs font-medium">{question}</span>
+                <Textarea
+                  value={answers[index] ?? ""}
+                  onChange={(event) =>
+                    setAnswers((current) =>
+                      current.map((answer, answerIndex) =>
+                        answerIndex === index ? event.target.value : answer
+                      )
+                    )
+                  }
+                  rows={2}
+                  maxLength={2000}
+                  disabled={submittingClarification}
+                  className="min-h-16 bg-background"
+                />
+              </label>
+            ))}
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            className="mt-3"
+            disabled={
+              submittingClarification || answers.some((answer) => !answer.trim())
+            }
+            onClick={submitAnswers}
+          >
+            {submittingClarification && <Loader2 className="mr-2 size-3.5 animate-spin" />}
+            Envoyer les précisions
+          </Button>
+        </div>
+      )}
+
+      {response.actions.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {response.actions.map((action) => (
+            <Button
+              key={action.action_id}
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-auto max-w-full whitespace-normal text-left"
+              disabled={pendingAction === action.action_id}
+              onClick={() => runAction(action)}
+            >
+              {pendingAction === action.action_id ? (
+                <Loader2 className="mr-2 size-3.5 animate-spin" />
+              ) : (
+                <ExternalLink className="mr-2 size-3.5" />
+              )}
+              {action.label}
+            </Button>
+          ))}
+        </div>
+      )}
+
+      {response.sources.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {response.sources.map((source) => (
+            <Badge key={source.citation_id} variant="outline" className="text-[10px]">
+              {source.label}
+            </Badge>
+          ))}
+          <Badge variant="secondary" className="gap-1 text-[10px]">
+            <ShieldCheck className="size-3" /> {response.quality.status}
+          </Badge>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MessageBubble({
+  message,
+  isAdmin,
+  onStop,
+  onFeedback,
+  onPublicAction,
+  onSubmitClarification,
+}: BubbleProps) {
   const isUser = message.role === "user";
   const cleanedContent = isUser ? message.content : removeDbTableMarker(message.content);
   const actionLinks = !isUser ? extractActionLinks(cleanedContent, message.marketplace_plan) : [];
@@ -1291,6 +1590,13 @@ function MessageBubble({ message, isAdmin, onStop, onFeedback }: BubbleProps) {
             )
           )}
           {!isUser && <ActionLinkButtons links={actionLinks} />}
+          {!isUser && message.public_response && (
+            <PublicResponsePanel
+              response={message.public_response}
+              onPublicAction={onPublicAction}
+              onSubmitClarification={onSubmitClarification}
+            />
+          )}
           {message.streaming && message.content && (
             <span className="inline-block w-0.5 h-3.5 bg-current ml-0.5 animate-pulse align-middle" />
           )}

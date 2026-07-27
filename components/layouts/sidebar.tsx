@@ -14,6 +14,7 @@ import {
   LifeBuoy,
   BookOpen,
   KeyRound,
+  Package,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -49,6 +50,7 @@ const BASE_NAV = [
 const ADMIN_ITEMS = [
   { title: "Administration", href: "/admin", icon: Shield },
   { title: "Contenu documentation", href: "/admin/documentation", icon: BookOpen },
+  { title: "Marketplace", href: "/admin/marketplace", icon: Package },
 ];
 
 interface SidebarProps {
@@ -101,10 +103,12 @@ export function Sidebar({ isOpen, onClose, isMobile }: SidebarProps) {
 
       {/* Mobile overlay */}
       {isMobile && isOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/50"
+        <button
+          type="button"
+          className="fixed inset-0 z-40 bg-black/50 animate-fade-in cursor-default"
           onClick={onClose}
-          aria-hidden="true"
+          aria-label="Fermer le menu"
+          tabIndex={-1}
         />
       )}
 
@@ -158,8 +162,8 @@ export function Sidebar({ isOpen, onClose, isMobile }: SidebarProps) {
                           className={cn(
                             "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                             isActive(item.href)
-                              ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                              : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                              ? "bg-sidebar-primary/15 text-sidebar-primary border-l-2 border-sidebar-primary"
+                              : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
                           )}
                         >
                           <item.icon className="size-4 shrink-0" />
@@ -181,8 +185,8 @@ export function Sidebar({ isOpen, onClose, isMobile }: SidebarProps) {
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                 isActive("/support")
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  ? "bg-sidebar-primary/15 text-sidebar-primary border-l-2 border-sidebar-primary"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
               )}
             >
               <LifeBuoy className="size-4 shrink-0" />

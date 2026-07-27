@@ -29,6 +29,8 @@ import { ProjectConfigForm } from "./project-config-form";
 import { KnowledgeSourcesTab } from "./knowledge-sources-tab";
 import { ProjectDatabaseTab } from "./project-database-tab";
 import { ProjectSqlTab } from "./project-sql-tab";
+import { ProjectMarketplaceTab } from "./project-marketplace-tab";
+import { ProjectWorkflowTab } from "./project-workflow-tab";
 import { ProjectCachePanel } from "./project-cache-panel";
 import { RagFileEditorDialog } from "./rag-file-editor-dialog";
 import { projectsService } from "@/services/projects.service";
@@ -121,8 +123,25 @@ export function ProjectDetailPage({ projectId }: Props) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      <div className="space-y-7 animate-fade-in">
+        <div className="flex items-center gap-3">
+          <div className="skeleton size-8 rounded-md" />
+          <div className="space-y-2">
+            <div className="skeleton h-6 w-48 rounded" />
+            <div className="skeleton h-4 w-64 rounded" />
+          </div>
+        </div>
+        <div className="skeleton h-10 w-full max-w-5xl rounded-lg" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <Card key={i}><CardContent className="pt-6"><div className="skeleton h-12 rounded" /></CardContent></Card>
+          ))}
+        </div>
+        <Card><CardContent className="pt-6 space-y-3">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="skeleton h-10 rounded" />
+          ))}
+        </CardContent></Card>
       </div>
     );
   }
@@ -161,13 +180,17 @@ export function ProjectDetailPage({ projectId }: Props) {
       </div>
 
       <Tabs defaultValue="files">
-        <TabsList className="mx-auto grid w-full max-w-5xl grid-cols-2 md:grid-cols-5">
-          <TabsTrigger value="files">Fichiers</TabsTrigger>
-          <TabsTrigger value="sources">Sources externes</TabsTrigger>
-          <TabsTrigger value="database">Base de donnees</TabsTrigger>
-          <TabsTrigger value="sql">SQL Agent</TabsTrigger>
-          <TabsTrigger value="config">Configuration</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-1 px-1 pb-1">
+          <TabsList className="inline-flex w-auto min-w-full md:grid md:w-full md:max-w-5xl md:mx-auto md:grid-cols-7">
+            <TabsTrigger value="files">Fichiers</TabsTrigger>
+            <TabsTrigger value="sources" className="whitespace-nowrap">Sources externes</TabsTrigger>
+            <TabsTrigger value="database" className="whitespace-nowrap">Base de données</TabsTrigger>
+            <TabsTrigger value="sql" className="whitespace-nowrap">SQL Agent</TabsTrigger>
+            <TabsTrigger value="marketplace">Marketplace</TabsTrigger>
+            <TabsTrigger value="workflow">Workflow</TabsTrigger>
+            <TabsTrigger value="config">Configuration</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="config" className="mt-4">
           <ProjectConfigForm
@@ -186,6 +209,14 @@ export function ProjectDetailPage({ projectId }: Props) {
 
         <TabsContent value="sql" className="mt-4">
           <ProjectSqlTab projectId={projectId} />
+        </TabsContent>
+
+        <TabsContent value="marketplace" className="mt-4">
+          <ProjectMarketplaceTab projectId={projectId} />
+        </TabsContent>
+
+        <TabsContent value="workflow" className="mt-4">
+          <ProjectWorkflowTab projectId={projectId} />
         </TabsContent>
 
         <TabsContent value="files" className="mt-4">
@@ -263,16 +294,23 @@ export function ProjectDetailPage({ projectId }: Props) {
 
         <CardContent className="p-0">
           {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <FileText className="size-10 text-muted-foreground mb-3" />
-              <p className="text-sm text-muted-foreground font-medium">
+            <div className="flex flex-col items-center justify-center py-16 text-center animate-fade-in">
+              <div className="rounded-full bg-muted p-3 mb-4">
+                <FileText className="size-6 text-muted-foreground" />
+              </div>
+              <p className="text-sm font-medium">
                 {search || status !== "all" ? "Aucun résultat" : "Aucun fichier importé"}
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-1 max-w-xs">
                 {search || status !== "all"
-                  ? "Modifiez vos filtres."
-                  : "Importez vos données pour alimenter l'IA."}
+                  ? "Modifiez vos filtres pour afficher des fichiers."
+                  : "Importez vos données pour alimenter l'IA de ce projet."}
               </p>
+              {!search && status === "all" && (
+                <div className="mt-4">
+                  <UploadFileDialog projectId={projectId} apiKey={apiKey} onUploaded={load} />
+                </div>
+              )}
             </div>
           ) : (
             <>

@@ -4,13 +4,21 @@
  * Auth : X-API-Key (clé du projet).
  */
 
-import { keyGet, keyPost, keyDel } from "@/lib/api/client";
+import {
+  keyDel,
+  keyGet,
+  keyGetV2,
+  keyPost,
+  probePublicChatV2,
+} from "@/lib/api/client";
 import { withService } from "@/lib/api/result";
+import { parsePublicChatResponseV2 } from "@/services/chat.service";
 import type {
   Conversation,
   ConversationListResponse,
   ConversationDetail,
   ConversationMessage,
+  PublicConversationMessagesV2,
 } from "@/types";
 
 export const conversationsService = {
@@ -67,11 +75,20 @@ export const conversationsService = {
    */
   messages(conversationId: string, apiKey: string) {
     return withService(
-      () =>
-        keyGet<{ messages: ConversationMessage[] }>(
+      async () => {
+        const publicV2 = await probePublicChatV2(apiKey);
+        if (!publicV2) {
+          return keyGet<{ messages: ConversationMessage[] }>(
+            `/conversations/${conversationId}/messages`,
+            apiKey
+          );
+        }
+        const payload = await keyGetV2<unknown>(
           `/conversations/${conversationId}/messages`,
           apiKey
-        ),
+        );
+        return parsePublicConversationMessages(payload, conversationId);
+      },
       {
         showErrorToast: true,
         errorMessage: "Impossible de charger les messages",
@@ -89,3 +106,63 @@ export const conversationsService = {
     );
   },
 };
+
+function parsePublicConversationMessages(
+  value: unknown,
+  conversationId: string
+): PublicConversationMessagesV2 {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Historique public v2 invalide");
+  }
+  const payload = value as Record<string, unknown>;
+  if (
+    payload.schema_version !== "conversation.messages.public.v2" ||
+    payload.conversation_id !== conversationId ||
+    !Array.isArray(payload.messages)
+  ) {
+    throw new Error("Historique public v2 invalide");
+  }
+  const messages = payload.messages.map((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      throw new Error("Message public v2 invalide");
+    }
+    const message = item as Record<string, unknown>;
+    if (
+      message.schema_version !== "conversation.message.public.v2" ||
+      typeof message.id !== "string" ||
+      message.conversation_id !== conversationId ||
+      !["user", "assistant"].includes(String(message.role)) ||
+      typeof message.content !== "string" ||
+      typeof message.timestamp !== "string" ||
+      Number.isNaN(Date.parse(message.timestamp))
+    ) {
+      throw new Error("Message public v2 invalide");
+    }
+    const publicResponse = message.public_response === null
+      ? null
+      : parsePublicChatResponseV2(message.public_response);
+    if (
+      message.public_response !== null &&
+      (!publicResponse ||
+        publicResponse.conversation_id !== conversationId ||
+        publicResponse.assistant_message.id !== message.id ||
+        publicResponse.assistant_message.content !== message.content)
+    ) {
+      throw new Error("Payload public v2 incohérent avec l’historique");
+    }
+    return {
+      schema_version: "conversation.message.public.v2" as const,
+      id: message.id,
+      conversation_id: conversationId,
+      role: message.role as "user" | "assistant",
+      content: message.content,
+      timestamp: message.timestamp,
+      public_response: publicResponse,
+    };
+  });
+  return {
+    schema_version: "conversation.messages.public.v2",
+    conversation_id: conversationId,
+    messages,
+  };
+}
