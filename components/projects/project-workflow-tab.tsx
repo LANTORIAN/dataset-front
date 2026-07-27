@@ -146,8 +146,16 @@ export function ProjectWorkflowTab({ projectId }: Props) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16">
-        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      <div className="space-y-4 animate-fade-in">
+        <div className="skeleton h-10 w-full max-w-md rounded-lg" />
+        <Card>
+          <CardHeader><div className="skeleton h-5 w-48 rounded" /></CardHeader>
+          <CardContent className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="skeleton h-10 rounded" />
+            ))}
+          </CardContent>
+        </Card>
       </div>
     );
   }

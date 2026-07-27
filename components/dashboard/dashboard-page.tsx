@@ -74,7 +74,7 @@ export function DashboardPage() {
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {STAT_CARDS.map((card, i) => (
-          <Card key={card.title} className="hover:shadow-md transition-shadow">
+          <Card key={card.title} className={`hover:shadow-md transition-shadow animate-fade-in-up stagger-${i + 1}`}>
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
               <CardTitle className="text-sm font-medium text-muted-foreground">{card.title}</CardTitle>
               <div className={`rounded-md p-1.5 ${card.bg}`}>
@@ -82,13 +82,17 @@ export function DashboardPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold">{loading ? "…" : stats[i]}</p>
+              {loading ? (
+                <div className="skeleton h-7 w-16 rounded" />
+              ) : (
+                <p className="text-2xl font-bold">{stats[i]}</p>
+              )}
             </CardContent>
           </Card>
         ))}
       </div>
 
-      <Card className="overflow-hidden border-primary/15 bg-gradient-to-br from-background via-muted/30 to-primary/10">
+      <Card className="overflow-hidden border-primary/15 bg-gradient-to-br from-background via-muted/30 to-primary/10 animate-fade-in-up stagger-5">
         <CardContent className="p-0">
           <div className="grid gap-0 lg:grid-cols-[1.2fr_1fr]">
             <div className="space-y-4 p-6">

@@ -49,7 +49,7 @@ export function Header({ onToggleSidebar, title }: HeaderProps) {
         </Button>
 
         {title && (
-          <h1 className="text-sm font-semibold text-foreground truncate">{title}</h1>
+          <h1 className="text-sm font-semibold text-foreground truncate" title={title}>{title}</h1>
         )}
 
         <div className="ml-auto flex items-center gap-1">

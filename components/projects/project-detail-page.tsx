@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   FileText, MessageSquare, Trash2, ArrowLeft,
   CheckCircle, Clock, AlertCircle, Loader2, Search,
-  Edit3, RefreshCw,
+  Edit3, RefreshCw, X,
 } from "lucide-react";
 import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
@@ -275,8 +275,18 @@ export function ProjectDetailPage({ projectId }: Props) {
               placeholder="Rechercher un fichier…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-8 h-8 text-sm"
+              className="pl-8 pr-8 h-8 text-sm"
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-2 rounded-sm p-0.5 text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Effacer la recherche"
+              >
+                <X className="size-3.5" />
+              </button>
+            )}
           </div>
           <Select value={status} onValueChange={(v) => setStatus(v as StatusFilter)}>
             <SelectTrigger className="h-8 w-36 text-xs">

@@ -130,8 +130,15 @@ export function ProjectMarketplaceTab({ projectId }: Props) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16">
-        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      <div className="space-y-4 animate-fade-in">
+        <Card>
+          <CardHeader><div className="skeleton h-5 w-48 rounded" /></CardHeader>
+          <CardContent className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="skeleton h-12 rounded" />
+            ))}
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -164,7 +171,7 @@ export function ProjectMarketplaceTab({ projectId }: Props) {
                     : "Créez un nouveau module marketplace pour ce projet."}
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 pt-2">
+              <fieldset className="space-y-4 pt-2" disabled={saving}>
                 <div className="grid gap-3 grid-cols-2">
                   <div className="space-y-1.5">
                     <Label htmlFor="module_id">ID Module</Label>
@@ -245,7 +252,7 @@ export function ProjectMarketplaceTab({ projectId }: Props) {
                   {saving && <Loader2 className="size-4 animate-spin mr-2" />}
                   {editing ? "Mettre à jour" : "Créer"}
                 </Button>
-              </div>
+              </fieldset>
             </DialogContent>
           </Dialog>
         </CardHeader>
@@ -282,8 +289,12 @@ export function ProjectMarketplaceTab({ projectId }: Props) {
                 {modules.map((mod) => (
                   <TableRow
                     key={mod.id}
-                    className="cursor-pointer"
+                    className="interactive-row"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Modifier le module ${mod.name}`}
                     onClick={() => openEdit(mod)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEdit(mod); } }}
                   >
                     <TableCell className="font-mono text-sm">
                       {mod.module_id}
