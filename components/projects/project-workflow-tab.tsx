@@ -144,13 +144,21 @@ export function ProjectWorkflowTab({ projectId }: Props) {
       workflowService.listCandidates(projectId),
     ]);
     if (configRes.ok) setSettings(configRes.data.settings);
-    if (readinessRes.ok) setReadiness(readinessRes.data);
+    if (readinessRes.ok) {
+      setReadiness(readinessRes.data);
+    } else {
+      setReadiness(null);
+    }
     if (runsRes.ok) setRuns(runsRes.data);
     if (obsRes.ok) setObservability(obsRes.data);
     if (evalRes.ok) setEvaluation(evalRes.data);
     if (candRes.ok) setCandidates(candRes.data);
-    if (!configRes.ok || !readinessRes.ok) {
-      setLoadError("L’état du moteur n’a pas pu être chargé complètement.");
+    if (!configRes.ok) {
+      setLoadError("La configuration du moteur n’a pas pu être chargée.");
+    } else if (!readinessRes.ok) {
+      setLoadError(
+        "La configuration v2 est chargée, mais le diagnostic de readiness n’est pas encore disponible sur le backend déployé."
+      );
     }
     setLoading(false);
     setRefreshing(false);
@@ -199,10 +207,28 @@ export function ProjectWorkflowTab({ projectId }: Props) {
   const warningChecks = readiness?.checks.filter((check) => check.status === "warning") ?? [];
   const plannerCheck = readiness?.checks.find((check) => check.key === "planner");
   const latestOutcome = readiness?.recent_outcomes[0];
-  const readinessStatus = readiness?.status ?? "blocked";
-  const canEnableV2 = blockedChecks.some((check) =>
-    ["configuration", "rollout"].includes(check.key)
+  const effectiveMode = readiness?.rollout_mode ?? settings?.rollout_mode;
+  const hasServingConfiguration = Boolean(
+    settings?.is_enabled &&
+      effectiveMode &&
+      ["canary", "active"].includes(effectiveMode) &&
+      (effectiveMode === "active" || (settings?.canary_sample_rate ?? 0) > 0)
   );
+  const readinessStatus =
+    readiness?.status ?? (hasServingConfiguration ? "degraded" : "blocked");
+  const readinessLabel = readiness
+    ? READINESS_LABELS[readinessStatus]
+    : hasServingConfiguration
+      ? "Diagnostic indisponible"
+      : "Configuration requise";
+  const effectiveCanaryRate =
+    readiness?.canary_sample_rate ??
+    (effectiveMode === "active" ? 1 : settings?.canary_sample_rate ?? 0);
+  const canEnableV2 = readiness
+    ? blockedChecks.some((check) =>
+        ["configuration", "rollout"].includes(check.key)
+      )
+    : !hasServingConfiguration;
 
   if (loading) {
     return (
@@ -236,7 +262,7 @@ export function ProjectWorkflowTab({ projectId }: Props) {
                       : "outline"
                 }
               >
-                {READINESS_LABELS[readinessStatus]}
+                {readinessLabel}
               </Badge>
             </div>
             <CardDescription className="max-w-2xl">
@@ -280,10 +306,16 @@ export function ProjectWorkflowTab({ projectId }: Props) {
                 <Cpu className="size-4" /> Service public
               </div>
               <p className="text-xl font-semibold">
-                {readiness?.can_accept_public_v2 ? "Disponible" : "Bloqué"}
+                {readiness
+                  ? readiness.can_accept_public_v2
+                    ? "Disponible"
+                    : "Bloqué"
+                  : hasServingConfiguration
+                    ? "À vérifier"
+                    : "Bloqué"}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Mode {readiness ? ROLLOUT_MODE_LABELS[readiness.rollout_mode] : "inconnu"}
+                 Mode {effectiveMode ? ROLLOUT_MODE_LABELS[effectiveMode] : "inconnu"}
               </p>
             </div>
             <div className="rounded-lg border bg-muted/20 p-4">
@@ -291,7 +323,7 @@ export function ProjectWorkflowTab({ projectId }: Props) {
                 <Activity className="size-4" /> Trafic v2
               </div>
               <p className="text-xl font-semibold">
-                {Math.round((readiness?.canary_sample_rate ?? 0) * 100)}%
+                {Math.round(effectiveCanaryRate * 100)}%
               </p>
               <p className="mt-1 text-xs text-muted-foreground">Sans fallback legacy</p>
             </div>
@@ -300,7 +332,9 @@ export function ProjectWorkflowTab({ projectId }: Props) {
                 <Database className="size-4" /> Sources prêtes
               </div>
               <p className="text-xl font-semibold">
-                {readiness?.source_ready_count ?? 0}/{readiness?.source_count ?? 0}
+                {readiness
+                  ? `${readiness.source_ready_count}/${readiness.source_count}`
+                  : "—"}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">Sources projet disponibles</p>
             </div>
@@ -309,10 +343,16 @@ export function ProjectWorkflowTab({ projectId }: Props) {
                 <Boxes className="size-4" /> Intelligence
               </div>
               <p className="text-xl font-semibold">
-                {plannerCheck?.status === "ready" ? "Prête" : "À configurer"}
+                {readiness
+                  ? plannerCheck?.status === "ready"
+                    ? "Prête"
+                    : "À configurer"
+                  : "À vérifier"}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {readiness?.capability_count ?? 0} capacité(s) métier disponible(s)
+                {readiness
+                  ? `${readiness.capability_count} capacité(s) métier disponible(s)`
+                  : "Diagnostic backend requis"}
               </p>
             </div>
           </div>
