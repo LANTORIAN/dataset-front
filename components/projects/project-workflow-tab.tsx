@@ -111,6 +111,8 @@ const CHECK_HELP: Record<string, string> = {
 const FAILURE_LABELS: Record<string, string> = {
   planner_unavailable: "Le Planner n’a aucun provider disponible.",
   planner_global_deadline_exceeded: "Le Planner a dépassé son délai.",
+  planner_contract_invalid:
+    "Le Planner a renvoyé deux plans incompatibles avec le contrat attendu.",
   workflow_setup_failed: "Le contexte privé du projet n’a pas pu être construit.",
   workflow_precommit_failed: "Le moteur a rejeté le plan ou la réponse avant publication.",
   workflow_commit_failed: "La réponse était prête mais son enregistrement a échoué.",
@@ -157,7 +159,7 @@ export function ProjectWorkflowTab({ projectId }: Props) {
       setLoadError("La configuration du moteur n’a pas pu être chargée.");
     } else if (!readinessRes.ok) {
       setLoadError(
-        "La configuration v2 est chargée, mais le diagnostic de readiness n’est pas encore disponible sur le backend déployé."
+        "Le moteur v2 est configuré et reste utilisable. Mettez à jour le backend uniquement pour afficher ses diagnostics détaillés."
       );
     }
     setLoading(false);
