@@ -1605,7 +1605,7 @@ function MessageBubble({
             <AgenticThinking steps={message.progress_steps} compact startedAt={message.timestamp} />
           )}
 
-          {!isUser && <AgenticTelemetry message={message} />}
+          {!isUser && isAdmin && traceOpen && <AgenticTelemetry message={message} />}
 
           {!isUser && isAdmin && (message.trace_events?.length ?? 0) > 0 && (
             <div className="mt-2 border-t border-border/40 pt-2">

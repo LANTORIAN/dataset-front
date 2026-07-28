@@ -17,7 +17,6 @@ import type {
   PublicChatActionV2,
   PublicChatResponseV2,
   PublicChatSseEventV2,
-  RecoveryMetadata,
 } from "@/types";
 
 // ── Callbacks ──────────────────────────────────────────────────────────────
@@ -130,16 +129,6 @@ function streamChatV1(
   let conversationId: string | undefined;
   let messageId: string | undefined;
   let sourceType: string | undefined;
-  let intent: string | undefined;
-  let plannedIntent: string | undefined;
-  let answerMode: string | undefined;
-  let confidenceLevel: string | undefined;
-  let nlu: NLUResult | undefined;
-  let recovery: RecoveryMetadata | undefined;
-  let selectedModules: string[] | undefined;
-  let moduleResults: Array<Record<string, unknown>> | undefined;
-  let moduleConflicts: Array<Record<string, unknown>> | undefined;
-  let moduleWarnings: string[] | undefined;
   let marketplacePlan: Record<string, unknown> | undefined;
   let terminal = false;
   let stopped = false;
@@ -167,24 +156,8 @@ function streamChatV1(
           messageId = typeof parsed.assistant_message_id === "string"
             ? parsed.assistant_message_id
             : undefined;
-          sourceType = parsed.source as string | undefined;
-          intent = parsed.intent as string | undefined;
-          plannedIntent = parsed.planned_intent as string | undefined;
-          answerMode = parsed.answer_mode as string | undefined;
-          confidenceLevel = parsed.confidence_level as string | undefined;
-          nlu = isNLUResult(parsed.nlu) ? parsed.nlu : undefined;
-          recovery = parseRecovery(parsed);
-          selectedModules = Array.isArray(parsed.selected_modules)
-            ? parsed.selected_modules.filter((m): m is string => typeof m === "string")
-            : undefined;
-          moduleResults = Array.isArray(parsed.module_results)
-            ? parsed.module_results.filter((m): m is Record<string, unknown> => !!m && typeof m === "object" && !Array.isArray(m))
-            : undefined;
-          moduleConflicts = Array.isArray(parsed.module_conflicts)
-            ? parsed.module_conflicts.filter((m): m is Record<string, unknown> => !!m && typeof m === "object" && !Array.isArray(m))
-            : undefined;
-          moduleWarnings = Array.isArray(parsed.module_warnings)
-            ? parsed.module_warnings.filter((m): m is string => typeof m === "string")
+          sourceType = typeof parsed.source_category === "string"
+            ? parsed.source_category
             : undefined;
           marketplacePlan = parsed.marketplace_plan && typeof parsed.marketplace_plan === "object" && !Array.isArray(parsed.marketplace_plan)
             ? parsed.marketplace_plan as Record<string, unknown>
@@ -203,18 +176,6 @@ function streamChatV1(
             conversationId,
             messageId,
             sourceType,
-            intent,
-            plannedIntent,
-            answerMode,
-            confidenceLevel,
-            nlu,
-            recoveryUsed: recovery?.used,
-            recoveryReason: recovery?.reason,
-            recoveryActions: recovery?.actions,
-            selectedModules,
-            moduleResults,
-            moduleConflicts,
-            moduleWarnings,
             marketplacePlan,
             responseTime: typeof parsed.response_time_ms === "number"
               ? parsed.response_time_ms / 1000
@@ -225,18 +186,6 @@ function streamChatV1(
             conversationId,
             messageId,
             sourceType,
-            intent,
-            plannedIntent,
-            answerMode,
-            confidenceLevel,
-            nlu,
-            recoveryUsed: recovery?.used,
-            recoveryReason: recovery?.reason,
-            recoveryActions: recovery?.actions,
-            selectedModules,
-            moduleResults,
-            moduleConflicts,
-            moduleWarnings,
             marketplacePlan,
           });
         }
@@ -722,38 +671,6 @@ function isPublicExplanation(value: unknown): boolean {
     typeof value.summary === "string" && !!value.summary.trim() &&
     isStringArray(value.selected_reasons) &&
     isStringArray(value.limitations);
-}
-
-function parseRecovery(parsed: Record<string, unknown>): RecoveryMetadata | undefined {
-  const used = parsed.recovery_used;
-  const reason = parsed.recovery_reason;
-  const actions = parsed.recovery_actions;
-
-  if (typeof used !== "boolean") return undefined;
-
-  return {
-    used,
-    reason: typeof reason === "string" ? reason : "",
-    actions: Array.isArray(actions)
-      ? actions.filter((item): item is string => typeof item === "string")
-      : [],
-  };
-}
-
-function isNLUResult(value: unknown): value is NLUResult {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const candidate = value as Record<string, unknown>;
-  return (
-    typeof candidate.primary_intent === "string" &&
-    typeof candidate.confidence === "number" &&
-    typeof candidate.should_use_llm === "boolean" &&
-    typeof candidate.language === "string" &&
-    typeof candidate.route_hint === "string" &&
-    Array.isArray(candidate.recommended_sources) &&
-    typeof candidate.requires_context === "boolean" &&
-    typeof candidate.cacheable === "boolean" &&
-    typeof candidate.latency_ms === "number"
-  );
 }
 
 // ── Version Promise (accumulation complète) ────────────────────────────────
