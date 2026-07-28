@@ -212,35 +212,36 @@ export const keyGetV2 = <T>(path: string, k: string) => apiFetch<T>(path, { auth
 export const keyPost = <T>(path: string, k: string, body?: unknown) => apiFetch<T>(path, { method: "POST",   body, auth: { type: "api-key", key: k } });
 export const keyPostV2 = <T>(path: string, k: string, body?: unknown) => apiFetch<T>(path, { method: "POST", body, auth: { type: "api-key", key: k }, apiVersion: "v2" });
 
-let publicChatV2Available: boolean | undefined;
+const publicChatV2Readiness = new Map<string, { value: boolean; expiresAt: number }>();
 
 export async function probePublicChatV2(
   apiKey: string,
   signal?: AbortSignal
 ): Promise<boolean> {
-  if (publicChatV2Available !== undefined) return publicChatV2Available;
-  const response = await fetch(`${apiBaseFor("v2")}/chat/capabilities`, {
+  const cached = publicChatV2Readiness.get(apiKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  const response = await fetch(`${apiBaseFor("v2")}/chat/readiness`, {
     method: "GET",
     headers: { "X-API-Key": apiKey },
     signal,
   });
   if (response.status === 404) {
-    publicChatV2Available = false;
     return false;
   }
   if (!response.ok) throw await parseApiError(response);
   const body = await response.json().catch(() => null) as Record<string, unknown> | null;
   if (
-    body?.schema_version !== "chat.capabilities.v2" ||
-    body.request_schema !== "chat.request.v2" ||
-    body.response_schema !== "chat.public.v2" ||
-    body.sse_schema !== "chat.sse.v2" ||
-    body.terminal_event !== "final"
+    body?.schema_version !== "chat.readiness.v1" ||
+    typeof body.can_accept_v2 !== "boolean"
   ) {
-    throw new Error("Contrat public v2 invalide");
+    throw new Error("Readiness publique v2 invalide");
   }
-  publicChatV2Available = true;
-  return true;
+  const available = body.can_accept_v2;
+  publicChatV2Readiness.set(apiKey, {
+    value: available,
+    expiresAt: Date.now() + (available ? 15_000 : 5_000),
+  });
+  return available;
 }
 export const keyPut  = <T>(path: string, k: string, body?: unknown) => apiFetch<T>(path, { method: "PUT",    body, auth: { type: "api-key", key: k } });
 export const keyDel  = <T>(path: string, k: string)                 => apiFetch<T>(path, { method: "DELETE",       auth: { type: "api-key", key: k } });

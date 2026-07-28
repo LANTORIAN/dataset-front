@@ -29,7 +29,6 @@ import { ProjectConfigForm } from "./project-config-form";
 import { KnowledgeSourcesTab } from "./knowledge-sources-tab";
 import { ProjectDatabaseTab } from "./project-database-tab";
 import { ProjectSqlTab } from "./project-sql-tab";
-import { ProjectMarketplaceTab } from "./project-marketplace-tab";
 import { ProjectWorkflowTab } from "./project-workflow-tab";
 import { ProjectCachePanel } from "./project-cache-panel";
 import { RagFileEditorDialog } from "./rag-file-editor-dialog";
@@ -179,14 +178,11 @@ export function ProjectDetailPage({ projectId }: Props) {
         </Button>
       </div>
 
-      <Tabs defaultValue="files">
+      <Tabs defaultValue="knowledge">
         <div className="overflow-x-auto -mx-1 px-1 pb-1">
-          <TabsList className="inline-flex w-auto min-w-full md:grid md:w-full md:max-w-5xl md:mx-auto md:grid-cols-7">
-            <TabsTrigger value="files">Fichiers</TabsTrigger>
-            <TabsTrigger value="sources" className="whitespace-nowrap">Sources externes</TabsTrigger>
-            <TabsTrigger value="database" className="whitespace-nowrap">Base de données</TabsTrigger>
-            <TabsTrigger value="sql" className="whitespace-nowrap">SQL Agent</TabsTrigger>
-            <TabsTrigger value="marketplace">Marketplace</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-4 md:max-w-2xl md:mx-auto">
+            <TabsTrigger value="knowledge">Connaissances</TabsTrigger>
+            <TabsTrigger value="data">Données</TabsTrigger>
             <TabsTrigger value="workflow">Workflow</TabsTrigger>
             <TabsTrigger value="config">Configuration</TabsTrigger>
           </TabsList>
@@ -199,27 +195,35 @@ export function ProjectDetailPage({ projectId }: Props) {
           />
         </TabsContent>
 
-        <TabsContent value="sources" className="mt-4">
-          <KnowledgeSourcesTab projectId={projectId} apiKey={apiKey} />
-        </TabsContent>
-
-        <TabsContent value="database" className="mt-4">
-          <ProjectDatabaseTab projectId={projectId} />
-        </TabsContent>
-
-        <TabsContent value="sql" className="mt-4">
-          <ProjectSqlTab projectId={projectId} />
-        </TabsContent>
-
-        <TabsContent value="marketplace" className="mt-4">
-          <ProjectMarketplaceTab projectId={projectId} />
+        <TabsContent value="data" className="mt-4">
+          <Tabs defaultValue="database">
+            <TabsList>
+              <TabsTrigger value="database">Connexion</TabsTrigger>
+              <TabsTrigger value="sql">Agent SQL</TabsTrigger>
+            </TabsList>
+            <TabsContent value="database" className="mt-4">
+              <ProjectDatabaseTab projectId={projectId} />
+            </TabsContent>
+            <TabsContent value="sql" className="mt-4">
+              <ProjectSqlTab projectId={projectId} />
+            </TabsContent>
+          </Tabs>
         </TabsContent>
 
         <TabsContent value="workflow" className="mt-4">
           <ProjectWorkflowTab projectId={projectId} />
         </TabsContent>
 
-        <TabsContent value="files" className="mt-4">
+        <TabsContent value="knowledge" className="mt-4">
+          <Tabs defaultValue="files">
+            <TabsList>
+              <TabsTrigger value="files">Fichiers</TabsTrigger>
+              <TabsTrigger value="sources">Sources externes</TabsTrigger>
+            </TabsList>
+            <TabsContent value="sources" className="mt-4">
+              <KnowledgeSourcesTab projectId={projectId} apiKey={apiKey} />
+            </TabsContent>
+            <TabsContent value="files" className="mt-4">
 
       {/* Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -446,6 +450,8 @@ export function ProjectDetailPage({ projectId }: Props) {
         onSaved={load}
       />
 
+            </TabsContent>
+          </Tabs>
         </TabsContent>
       </Tabs>
     </div>

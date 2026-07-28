@@ -945,52 +945,6 @@ export interface DocumentationContent {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Marketplace
-// ────────────────────────────────────────────────────────────────────────────
-
-export interface MarketplaceModuleUpsert {
-  module_id: string;
-  name: string;
-  description?: string;
-  needs?: string[];
-  required_data?: string[];
-  preconditions?: string[];
-  compatible_with?: string[];
-  incompatible_with?: string[];
-  priority?: number;
-  output_type?: string;
-  is_enabled?: boolean;
-}
-
-export interface MarketplaceModule {
-  id: string;
-  project_id: string | null;
-  module_id: string;
-  name: string;
-  description: string;
-  needs: string[];
-  required_data: string[];
-  preconditions: string[];
-  compatible_with: string[];
-  incompatible_with: string[];
-  priority: number;
-  output_type: string;
-  is_enabled: boolean;
-  created_at: string | null;
-  updated_at: string | null;
-}
-
-export interface MarketplaceModuleListResponse {
-  modules: MarketplaceModule[];
-  total: number;
-}
-
-export interface MarketplaceSeedResponse {
-  seeded: number;
-  status: string;
-}
-
-// ────────────────────────────────────────────────────────────────────────────
 // Workflow — Enums & Sub-contracts
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -1122,6 +1076,39 @@ export interface ProjectWorkflowConfiguration {
   project_id: string;
   settings: WorkflowSettings;
   capability_catalog: CapabilityCatalog | null;
+}
+
+export type WorkflowReadinessStatus = "ready" | "degraded" | "blocked";
+export type WorkflowCheckStatus = "ready" | "warning" | "blocked";
+
+export interface WorkflowReadinessCheck {
+  key: string;
+  status: WorkflowCheckStatus;
+  message: string;
+  action: string | null;
+}
+
+export interface WorkflowRecentOutcome {
+  status: string;
+  delivery: string;
+  reason_code: string;
+  duration_ms: number;
+  created_at: string;
+}
+
+export interface WorkflowReadiness {
+  schema_version: "workflow_readiness.v1";
+  project_id: string;
+  status: WorkflowReadinessStatus;
+  can_accept_public_v2: boolean;
+  rollout_mode: WorkflowRolloutMode;
+  canary_sample_rate: number;
+  source_ready_count: number;
+  source_count: number;
+  capability_count: number;
+  checks: WorkflowReadinessCheck[];
+  recent_outcomes: WorkflowRecentOutcome[];
+  checked_at: string;
 }
 
 // ────────────────────────────────────────────────────────────────────────────

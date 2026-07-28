@@ -367,7 +367,9 @@ export function streamChat(
             startV1();
             return;
           }
-          fail("Le moteur public v2 est indisponible pour cette réponse.");
+          fail(
+            "Je ne peux pas répondre pour le moment. Un administrateur peut consulter Projet > Workflow pour identifier le prérequis manquant."
+          );
         },
         onEnd: () => {
           if (!settled) {
@@ -390,7 +392,9 @@ export function streamChat(
         if (available) {
           startV2();
         } else {
-          startV1();
+          fail(
+            "L’assistant est en cours de configuration. Un administrateur peut vérifier son état dans Projet > Workflow."
+          );
         }
       })
       .catch(() => {

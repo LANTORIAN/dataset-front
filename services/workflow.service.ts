@@ -25,6 +25,7 @@ import type {
   WorkflowEngineEvaluation,
   AgentRun,
   WorkflowRolloutObservability,
+  WorkflowReadiness,
 } from "@/types";
 
 export const workflowService = {
@@ -38,6 +39,17 @@ export const workflowService = {
           `/projects/${projectId}/workflow`
         ),
       { showErrorToast: true, errorMessage: "Impossible de charger la configuration workflow" }
+    );
+  },
+
+  /** Get actionable project-scoped runtime readiness. */
+  getReadiness(projectId: string) {
+    return withService(
+      () =>
+        bearerGet<WorkflowReadiness>(
+          `/projects/${projectId}/workflow/readiness`
+        ),
+      { showErrorToast: false }
     );
   },
 

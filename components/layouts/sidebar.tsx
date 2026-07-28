@@ -14,7 +14,6 @@ import {
   LifeBuoy,
   BookOpen,
   KeyRound,
-  Package,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -50,7 +49,6 @@ const BASE_NAV = [
 const ADMIN_ITEMS = [
   { title: "Administration", href: "/admin", icon: Shield },
   { title: "Contenu documentation", href: "/admin/documentation", icon: BookOpen },
-  { title: "Marketplace", href: "/admin/marketplace", icon: Package },
 ];
 
 interface SidebarProps {

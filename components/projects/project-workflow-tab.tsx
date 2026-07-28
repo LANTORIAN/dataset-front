@@ -12,6 +12,10 @@ import {
   XCircle,
   AlertTriangle,
   Clock,
+  RefreshCw,
+  Cpu,
+  Database,
+  Boxes,
 } from "lucide-react";
 import {
   Card,
@@ -21,6 +25,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -49,6 +54,7 @@ import type {
   WorkflowRolloutObservability,
   WorkflowEngineEvaluation,
   WorkflowCandidate,
+  WorkflowReadiness,
 } from "@/types";
 
 interface Props {
@@ -78,6 +84,38 @@ const RUN_STATUS_ICON: Record<string, React.ReactNode> = {
   failed: <XCircle className="size-3.5 text-destructive" />,
 };
 
+const READINESS_LABELS = {
+  ready: "Prêt",
+  degraded: "À surveiller",
+  blocked: "Configuration requise",
+} as const;
+
+const CHECK_LABELS: Record<string, string> = {
+  configuration: "Configuration",
+  runtime: "Runtime v2",
+  rollout: "Trafic public",
+  snapshot: "Contexte projet",
+  planner: "Planner LLM",
+  sources: "Sources de données",
+};
+
+const CHECK_HELP: Record<string, string> = {
+  configuration: "Activez le moteur v2 pour ce projet.",
+  runtime: "Le runtime v2 doit être activé sur le backend.",
+  rollout: "Aucune conversation n’est actuellement envoyée au moteur v2.",
+  snapshot: "La configuration privée du projet n’a pas pu être préparée.",
+  planner: "Ouvrez Configuration > Modèles LLM et configurez l’usage fast_agents.",
+  sources: "Utilisez Fichiers ou Base de données pour ajouter une source métier prête.",
+};
+
+const FAILURE_LABELS: Record<string, string> = {
+  planner_unavailable: "Le Planner n’a aucun provider disponible.",
+  planner_global_deadline_exceeded: "Le Planner a dépassé son délai.",
+  workflow_setup_failed: "Le contexte privé du projet n’a pas pu être construit.",
+  workflow_precommit_failed: "Le moteur a rejeté le plan ou la réponse avant publication.",
+  workflow_commit_failed: "La réponse était prête mais son enregistrement a échoué.",
+};
+
 export function ProjectWorkflowTab({ projectId }: Props) {
   const [settings, setSettings] = useState<WorkflowSettings | null>(null);
   const [runs, setRuns] = useState<AgentRun[]>([]);
@@ -86,31 +124,40 @@ export function ProjectWorkflowTab({ projectId }: Props) {
   const [evaluation, setEvaluation] =
     useState<WorkflowEngineEvaluation | null>(null);
   const [candidates, setCandidates] = useState<WorkflowCandidate[]>([]);
+  const [readiness, setReadiness] = useState<WorkflowReadiness | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [runStatusFilter, setRunStatusFilter] = useState<string>("all");
 
-  const load = async () => {
-    const [configRes, runsRes, obsRes] = await Promise.all([
+  const load = async (refresh = false) => {
+    if (refresh) setRefreshing(true);
+    setLoadError(null);
+    const [configRes, readinessRes, runsRes, obsRes, evalRes, candRes] =
+      await Promise.all([
       workflowService.getConfiguration(projectId),
+      workflowService.getReadiness(projectId),
       workflowService.listRuns(projectId, { limit: 50 }),
       workflowService.getRolloutObservability(projectId),
-    ]);
-    if (configRes.ok) setSettings(configRes.data.settings);
-    if (runsRes.ok) setRuns(runsRes.data);
-    if (obsRes.ok) setObservability(obsRes.data);
-
-    const [evalRes, candRes] = await Promise.all([
       workflowService.getEvaluation(projectId),
       workflowService.listCandidates(projectId),
     ]);
+    if (configRes.ok) setSettings(configRes.data.settings);
+    if (readinessRes.ok) setReadiness(readinessRes.data);
+    if (runsRes.ok) setRuns(runsRes.data);
+    if (obsRes.ok) setObservability(obsRes.data);
     if (evalRes.ok) setEvaluation(evalRes.data);
     if (candRes.ok) setCandidates(candRes.data);
+    if (!configRes.ok || !readinessRes.ok) {
+      setLoadError("L’état du moteur n’a pas pu être chargé complètement.");
+    }
     setLoading(false);
+    setRefreshing(false);
   };
 
   useEffect(() => {
-    load(); // eslint-disable-line react-hooks/set-state-in-effect
+    void load(); // eslint-disable-line react-hooks/set-state-in-effect
   }, [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleToggle = async (enabled: boolean) => {
@@ -119,12 +166,17 @@ export function ProjectWorkflowTab({ projectId }: Props) {
     const payload: WorkflowSettingsUpsert = {
       expected_revision: settings.revision,
       is_enabled: enabled,
-      shadow_mode: enabled,
-      rollout_mode: enabled ? "shadow" : "disabled",
+      shadow_mode: false,
+      rollout_mode: enabled ? "canary" : "disabled",
+      canary_sample_rate: enabled ? 1 : 0,
+      canary_fallback_policy: "never",
     };
     const result = await workflowService.updateSettings(projectId, payload);
     setSaving(false);
-    if (result.ok) setSettings(result.data);
+    if (result.ok) {
+      setSettings(result.data);
+      await load(true);
+    }
   };
 
   const handleUpdateShadowRate = async (rate: number) => {
@@ -143,6 +195,14 @@ export function ProjectWorkflowTab({ projectId }: Props) {
     runStatusFilter === "all"
       ? runs
       : runs.filter((r) => r.status === runStatusFilter);
+  const blockedChecks = readiness?.checks.filter((check) => check.status === "blocked") ?? [];
+  const warningChecks = readiness?.checks.filter((check) => check.status === "warning") ?? [];
+  const plannerCheck = readiness?.checks.find((check) => check.key === "planner");
+  const latestOutcome = readiness?.recent_outcomes[0];
+  const readinessStatus = readiness?.status ?? "blocked";
+  const canEnableV2 = blockedChecks.some((check) =>
+    ["configuration", "rollout"].includes(check.key)
+  );
 
   if (loading) {
     return (
@@ -162,23 +222,157 @@ export function ProjectWorkflowTab({ projectId }: Props) {
 
   return (
     <div className="space-y-4">
+      <Card className={readinessStatus === "blocked" ? "border-destructive/40" : "border-border"}>
+        <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="space-y-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <CardTitle className="text-lg">Moteur agentique</CardTitle>
+              <Badge
+                variant={
+                  readinessStatus === "blocked"
+                    ? "destructive"
+                    : readinessStatus === "ready"
+                      ? "default"
+                      : "outline"
+                }
+              >
+                {READINESS_LABELS[readinessStatus]}
+              </Badge>
+            </div>
+            <CardDescription className="max-w-2xl">
+              État réel du moteur public v2 pour ce projet. Les détails de certification restent masqués tant qu’une action n’est pas nécessaire.
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            {settings && canEnableV2 && (
+              <Button
+                size="sm"
+                onClick={() => void handleToggle(true)}
+                disabled={saving}
+              >
+                {saving ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
+                Activer v2
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="icon"
+              className="size-9"
+              onClick={() => void load(true)}
+              disabled={refreshing}
+              aria-label="Actualiser l’état du moteur"
+              title="Actualiser"
+            >
+              <RefreshCw className={`size-4 ${refreshing ? "animate-spin" : ""}`} />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {loadError && (
+            <div className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm">
+              {loadError}
+            </div>
+          )}
+
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-lg border bg-muted/20 p-4">
+              <div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                <Cpu className="size-4" /> Service public
+              </div>
+              <p className="text-xl font-semibold">
+                {readiness?.can_accept_public_v2 ? "Disponible" : "Bloqué"}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Mode {readiness ? ROLLOUT_MODE_LABELS[readiness.rollout_mode] : "inconnu"}
+              </p>
+            </div>
+            <div className="rounded-lg border bg-muted/20 p-4">
+              <div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                <Activity className="size-4" /> Trafic v2
+              </div>
+              <p className="text-xl font-semibold">
+                {Math.round((readiness?.canary_sample_rate ?? 0) * 100)}%
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">Sans fallback legacy</p>
+            </div>
+            <div className="rounded-lg border bg-muted/20 p-4">
+              <div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                <Database className="size-4" /> Sources prêtes
+              </div>
+              <p className="text-xl font-semibold">
+                {readiness?.source_ready_count ?? 0}/{readiness?.source_count ?? 0}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">Sources projet disponibles</p>
+            </div>
+            <div className="rounded-lg border bg-muted/20 p-4">
+              <div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                <Boxes className="size-4" /> Intelligence
+              </div>
+              <p className="text-xl font-semibold">
+                {plannerCheck?.status === "ready" ? "Prête" : "À configurer"}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {readiness?.capability_count ?? 0} capacité(s) métier disponible(s)
+              </p>
+            </div>
+          </div>
+
+          {(blockedChecks.length > 0 || warningChecks.length > 0) && (
+            <div className="grid gap-2 md:grid-cols-2">
+              {[...blockedChecks, ...warningChecks].map((check) => (
+                <div
+                  key={check.key}
+                  className="flex gap-3 rounded-lg border px-3 py-2.5 text-sm"
+                >
+                  {check.status === "blocked" ? (
+                    <XCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
+                  ) : (
+                    <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />
+                  )}
+                  <div>
+                    <p className="font-medium">{CHECK_LABELS[check.key] ?? check.key}</p>
+                    <p className="text-xs leading-relaxed text-muted-foreground">
+                      {CHECK_HELP[check.key] ?? check.message}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {latestOutcome && latestOutcome.delivery !== "engine" && (
+            <div className="flex flex-col gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-medium">Dernière réponse v2 non publiée</p>
+                <p className="text-xs text-muted-foreground">
+                  {FAILURE_LABELS[latestOutcome.reason_code] ?? "Le moteur a arrêté la réponse avant sa publication."}
+                </p>
+              </div>
+              <span className="font-mono text-xs text-muted-foreground">
+                {new Date(latestOutcome.created_at).toLocaleString("fr-FR")}
+              </span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Tabs defaultValue="settings">
         <TabsList className="grid w-full max-w-md grid-cols-4">
           <TabsTrigger value="settings">
             <Settings2 className="size-3.5 mr-1.5" />
-            Config
+            Paramètres
           </TabsTrigger>
           <TabsTrigger value="runs">
             <Activity className="size-3.5 mr-1.5" />
-            Runs
+            Exécutions
           </TabsTrigger>
           <TabsTrigger value="certification">
             <Shield className="size-3.5 mr-1.5" />
-            Certification
+            Qualité
           </TabsTrigger>
           <TabsTrigger value="observability">
             <Play className="size-3.5 mr-1.5" />
-            Rollout
+            Historique
           </TabsTrigger>
         </TabsList>
 
@@ -198,16 +392,19 @@ export function ProjectWorkflowTab({ projectId }: Props) {
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label className="font-medium">Activer le workflow</Label>
+                      <Label className="font-medium">Répondre avec le moteur v2</Label>
                       <p className="text-xs text-muted-foreground">
-                        Active le moteur en mode shadow (observations
-                        uniquement)
+                        Envoie toutes les conversations au moteur unifié, sans fallback legacy.
                       </p>
                     </div>
                     <Switch
                       checked={settings.is_enabled}
                       onCheckedChange={handleToggle}
-                      disabled={saving}
+                      disabled={
+                        saving ||
+                        settings.rollout_mode === "active" ||
+                        Boolean(settings.evaluation_window_id)
+                      }
                     />
                   </div>
 
@@ -251,7 +448,7 @@ export function ProjectWorkflowTab({ projectId }: Props) {
                     </div>
                   </div>
 
-                  {settings.is_enabled && (
+                  {settings.rollout_mode === "shadow" && (
                     <div className="space-y-2 pt-2 border-t">
                       <Label>Taux d&apos;échantillonnage shadow</Label>
                       <div className="flex items-center gap-3">
