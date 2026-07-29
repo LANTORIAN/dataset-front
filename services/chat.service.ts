@@ -211,10 +211,8 @@ export function streamChat(
             publicResponse: response,
           });
         },
-        onHttpError: () => {
-          fail(
-            "Le moteur agentique a refusé la requête. Vérifiez sa configuration dans Projet > Workflow."
-          );
+        onHttpError: (status, body) => {
+          fail(publicV2HttpError(status, body));
         },
         onEnd: () => {
           if (!settled) {
@@ -252,6 +250,23 @@ function publicProgressLabel(step: string): string {
     composing: "Composition de la réponse...",
     validating: "Validation finale...",
   }[step] ?? "Traitement en cours...";
+}
+
+function publicV2HttpError(status: number, body: unknown): string {
+  const detail = isRecord(body) && isRecord(body.detail) ? body.detail : null;
+  const code = detail && typeof detail.code === "string" ? detail.code : null;
+  const labels: Record<string, string> = {
+    PUBLIC_V2_RUNTIME_DISABLED:
+      "Le runtime agentique est désactivé sur le serveur backend.",
+    PUBLIC_V2_REQUEST_ID_REQUIRED:
+      "La requête agentique ne contient pas son identifiant.",
+    PUBLIC_V2_NOT_SELECTED:
+      "La configuration backend n’a pas sélectionné le moteur agentique.",
+  };
+  return (
+    (code && labels[code]) ||
+    `Le moteur agentique a refusé la requête (HTTP ${status}).`
+  );
 }
 
 function parsePublicChatEventV2(
