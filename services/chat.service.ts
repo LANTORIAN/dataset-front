@@ -8,9 +8,11 @@
 import {
   createChatStream,
   keyPostV2,
+  probePublicChatV2,
 } from "@/lib/api/client";
 import type { StreamOptions } from "@/lib/api/client";
 import type {
+  ChatStreamChunk,
   NLUResult,
   PublicChatActionV2,
   PublicChatResponseV2,
@@ -113,12 +115,144 @@ export interface StreamCallbacks {
   onTrace?: (trace: { kind: "reasoning" | "verify"; title: string; message: string }) => void;
 }
 
+function streamChatV1(
+  opts: StreamOptions,
+  callbacks: StreamCallbacks
+): { stop: () => void } {
+  let conversationId: string | undefined;
+  let messageId: string | undefined;
+  let sourceType: string | undefined;
+  let marketplacePlan: Record<string, unknown> | undefined;
+  let terminal = false;
+  let stopped = false;
+
+  const finishError = (message: string) => {
+    if (terminal || stopped) return;
+    terminal = true;
+    control.stop();
+    callbacks.onError(message);
+  };
+
+  const finishDone = (metadata: StreamDoneMetadata) => {
+    if (terminal || stopped) return;
+    terminal = true;
+    callbacks.onDone(metadata);
+  };
+
+  const control = createChatStream({ ...opts, contractVersion: "v1" }, {
+    onEvent: (eventName, data) => {
+      if (terminal || stopped) return;
+      if (eventName === "meta") {
+        try {
+          const parsed = JSON.parse(data) as Record<string, unknown>;
+          conversationId = parsed.conversation_id as string | undefined;
+          messageId = typeof parsed.assistant_message_id === "string"
+            ? parsed.assistant_message_id
+            : undefined;
+          sourceType = typeof parsed.source_category === "string"
+            ? parsed.source_category
+            : undefined;
+          marketplacePlan = parsed.marketplace_plan && typeof parsed.marketplace_plan === "object" && !Array.isArray(parsed.marketplace_plan)
+            ? parsed.marketplace_plan as Record<string, unknown>
+            : undefined;
+        } catch { /* ignore malformed meta */ }
+        return;
+      }
+
+      if (eventName === "done") {
+        try {
+          const parsed = JSON.parse(data) as Record<string, unknown>;
+          messageId = typeof parsed.assistant_message_id === "string"
+            ? parsed.assistant_message_id
+            : messageId;
+          finishDone({
+            conversationId,
+            messageId,
+            sourceType,
+            marketplacePlan,
+            responseTime: typeof parsed.response_time_ms === "number"
+              ? parsed.response_time_ms / 1000
+              : undefined,
+          });
+        } catch {
+          finishDone({
+            conversationId,
+            messageId,
+            sourceType,
+            marketplacePlan,
+          });
+        }
+        return;
+      }
+
+      if (eventName === "error") {
+        finishError(data || "Erreur du serveur.");
+        return;
+      }
+
+      if (eventName === "progress") {
+        try {
+          const parsed = JSON.parse(data) as Record<string, unknown>;
+          const step = typeof parsed.step === "string" ? parsed.step : "progress";
+          const message = typeof parsed.message === "string" ? parsed.message : "Traitement en cours...";
+          callbacks.onProgress?.({ step, message });
+        } catch {
+          callbacks.onProgress?.({ step: "progress", message: data || "Traitement en cours..." });
+        }
+        return;
+      }
+
+      if (eventName === "reasoning" || eventName === "verify") {
+        try {
+          const parsed = JSON.parse(data) as Record<string, unknown>;
+          const title = typeof parsed.title === "string" ? parsed.title : eventName;
+          const message = typeof parsed.message === "string" ? parsed.message : data;
+          callbacks.onTrace?.({
+            kind: eventName,
+            title,
+            message,
+          });
+        } catch {
+          callbacks.onTrace?.({ kind: eventName, title: eventName, message: data });
+        }
+        return;
+      }
+
+      try {
+        const chunk = JSON.parse(data) as ChatStreamChunk;
+        if (chunk.error) { finishError(chunk.error); return; }
+        if (chunk.content) { callbacks.onChunk(chunk.content); }
+      } catch {
+        if (data.trim()) callbacks.onChunk(data);
+      }
+    },
+    onError: () => {
+      finishError("Connexion perdue. Vérifiez votre réseau ou la clé API.");
+    },
+    onHttpError: () => {
+      finishError("Le serveur v1 a refusé la requête.");
+    },
+    onEnd: () => {
+      if (!terminal) {
+        finishError("Le flux v1 s'est terminé sans événement terminal.");
+      }
+    },
+  });
+  return {
+    stop: () => {
+      stopped = true;
+      control.stop();
+    },
+  };
+}
+
 export function streamChat(
   opts: StreamOptions,
   callbacks: StreamCallbacks
 ): { stop: () => void; completion: Promise<boolean> } {
   const requestId = opts.requestId ?? crypto.randomUUID();
   let activeStop: (() => void) | undefined;
+  const probeController = new AbortController();
   let stopped = false;
   let settled = false;
   let receivedDelta = false;
@@ -145,6 +279,14 @@ export function streamChat(
     activeStop?.();
     callbacks.onDone(metadata);
     settleCompletion(true);
+  };
+
+  const startV1 = () => {
+    if (stopped || settled) return;
+    activeStop = streamChatV1(
+      { ...opts, requestId, contractVersion: "v1" },
+      { ...callbacks, onDone: succeed, onError: fail }
+    ).stop;
   };
 
   const startV2 = () => {
@@ -212,6 +354,10 @@ export function streamChat(
           });
         },
         onHttpError: (status, body) => {
+          if (!receivedDelta && isPublicV2PreflightMiss(status, body)) {
+            startV1();
+            return;
+          }
           fail(publicV2HttpError(status, body));
         },
         onEnd: () => {
@@ -226,14 +372,33 @@ export function streamChat(
     ).stop;
   };
 
-  if (opts.conversationId) startV2();
-  else fail("Impossible de démarrer la conversation agentique.");
+  if (!opts.conversationId) {
+    startV1();
+  } else {
+    void probePublicChatV2(opts.apiKey, probeController.signal)
+      .then((available) => {
+        if (stopped || settled) return;
+        if (available) {
+          startV2();
+        } else {
+          fail(
+            "L’assistant est en cours de configuration. Un administrateur peut vérifier son état dans Projet > Workflow."
+          );
+        }
+      })
+      .catch(() => {
+        if (!stopped) {
+          fail("Impossible de négocier le contrat public v2.");
+        }
+      });
+  }
 
   return {
     completion,
     stop: () => {
       if (stopped) return;
       stopped = true;
+      probeController.abort();
       activeStop?.();
       if (!settled) {
         settled = true;
@@ -241,6 +406,16 @@ export function streamChat(
       }
     },
   };
+}
+
+function isPublicV2PreflightMiss(status: number, body: unknown): boolean {
+  if (status !== 412 || !body || typeof body !== "object") return false;
+  const detail = (body as Record<string, unknown>).detail;
+  return (
+    !!detail &&
+    typeof detail === "object" &&
+    (detail as Record<string, unknown>).code === "PUBLIC_V2_NOT_SELECTED"
+  );
 }
 
 function publicProgressLabel(step: string): string {
@@ -253,8 +428,10 @@ function publicProgressLabel(step: string): string {
 }
 
 function publicV2HttpError(status: number, body: unknown): string {
-  const detail = isRecord(body) && isRecord(body.detail) ? body.detail : null;
+  const rawDetail = isRecord(body) ? body.detail : null;
+  const detail = isRecord(rawDetail) ? rawDetail : null;
   const code = detail && typeof detail.code === "string" ? detail.code : null;
+  const message = detail && typeof detail.message === "string" ? detail.message : null;
   const labels: Record<string, string> = {
     PUBLIC_V2_RUNTIME_DISABLED:
       "Le runtime agentique est désactivé sur le serveur backend.",
@@ -265,6 +442,8 @@ function publicV2HttpError(status: number, body: unknown): string {
   };
   return (
     (code && labels[code]) ||
+    message ||
+    (typeof rawDetail === "string" ? rawDetail : null) ||
     `Le moteur agentique a refusé la requête (HTTP ${status}).`
   );
 }

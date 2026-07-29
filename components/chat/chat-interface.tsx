@@ -404,7 +404,7 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantId
-                ? { ...m, streaming: false, content: m.content || "Une erreur est survenue." }
+                ? { ...m, streaming: false, content: m.content || msg || "Une erreur est survenue." }
                 : m
             )
           );
