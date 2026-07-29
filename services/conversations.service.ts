@@ -9,7 +9,6 @@ import {
   keyGet,
   keyGetV2,
   keyPost,
-  probePublicChatV2,
 } from "@/lib/api/client";
 import { withService } from "@/lib/api/result";
 import { parsePublicChatResponseV2 } from "@/services/chat.service";
@@ -17,7 +16,6 @@ import type {
   Conversation,
   ConversationListResponse,
   ConversationDetail,
-  ConversationMessage,
   PublicConversationMessagesV2,
 } from "@/types";
 
@@ -76,13 +74,6 @@ export const conversationsService = {
   messages(conversationId: string, apiKey: string) {
     return withService(
       async () => {
-        const publicV2 = await probePublicChatV2(apiKey);
-        if (!publicV2) {
-          return keyGet<{ messages: ConversationMessage[] }>(
-            `/conversations/${conversationId}/messages`,
-            apiKey
-          );
-        }
         const payload = await keyGetV2<unknown>(
           `/conversations/${conversationId}/messages`,
           apiKey
