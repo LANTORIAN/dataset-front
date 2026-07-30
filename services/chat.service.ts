@@ -8,7 +8,6 @@
 import {
   createChatStream,
   keyPostV2,
-  probePublicChatV2,
 } from "@/lib/api/client";
 import type { StreamOptions } from "@/lib/api/client";
 import type {
@@ -16,7 +15,6 @@ import type {
   NLUResult,
   PublicChatActionV2,
   PublicChatResponseV2,
-  PublicChatSseEventV2,
 } from "@/types";
 
 // ── Callbacks ──────────────────────────────────────────────────────────────
@@ -251,15 +249,9 @@ export function streamChat(
   callbacks: StreamCallbacks
 ): { stop: () => void; completion: Promise<boolean> } {
   const requestId = opts.requestId ?? crypto.randomUUID();
-  let activeStop: (() => void) | undefined;
-  const probeController = new AbortController();
+  let activeStop: () => void = () => undefined;
   let stopped = false;
   let settled = false;
-  let receivedDelta = false;
-  let expectedSequence = 0;
-  let traceId: string | undefined;
-  let assistantMessageId: string | undefined;
-  let content = "";
   let settleCompletion: (success: boolean) => void = () => undefined;
   const completion = new Promise<boolean>((resolve) => {
     settleCompletion = resolve;
@@ -268,7 +260,7 @@ export function streamChat(
   const fail = (message: string) => {
     if (settled || stopped) return;
     settled = true;
-    activeStop?.();
+    activeStop();
     callbacks.onError(message);
     settleCompletion(false);
   };
@@ -276,227 +268,28 @@ export function streamChat(
   const succeed = (metadata: StreamDoneMetadata) => {
     if (settled || stopped) return;
     settled = true;
-    activeStop?.();
+    activeStop();
     callbacks.onDone(metadata);
     settleCompletion(true);
   };
 
-  const startV1 = () => {
-    if (stopped || settled) return;
-    activeStop = streamChatV1(
-      { ...opts, requestId, contractVersion: "v1" },
-      { ...callbacks, onDone: succeed, onError: fail }
-    ).stop;
-  };
-
-  const startV2 = () => {
-    if (!opts.conversationId || stopped || settled) return;
-    activeStop = createChatStream(
-      { ...opts, requestId, contractVersion: "v2" },
-      {
-        onEvent: (eventName, data) => {
-          if (settled || stopped) return;
-          const event = parsePublicChatEventV2(eventName, data);
-          if (!event) {
-            fail("Réponse v2 invalide reçue du serveur.");
-            return;
-          }
-          if (traceId && event.trace_id !== traceId) {
-            fail("Le flux v2 a changé de trace en cours de réponse.");
-            return;
-          }
-          traceId ??= event.trace_id;
-          if (event.event === "progress") {
-            callbacks.onProgress?.({
-              step: event.step,
-              message: publicProgressLabel(event.step),
-            });
-            return;
-          }
-          if (event.event === "error") {
-            fail(`Le moteur v2 a refusé la réponse (${event.code}).`);
-            return;
-          }
-          if (event.event === "delta") {
-            if (
-              event.sequence !== expectedSequence ||
-              (assistantMessageId &&
-                event.assistant_message_id !== assistantMessageId)
-            ) {
-              fail("Le flux v2 contient une séquence de réponse invalide.");
-              return;
-            }
-            assistantMessageId ??= event.assistant_message_id;
-            expectedSequence += 1;
-            receivedDelta = true;
-            content += event.content;
-            callbacks.onChunk(event.content);
-            return;
-          }
-          const response = event.response;
-          if (
-            !receivedDelta ||
-            response.trace_id !== traceId ||
-            response.conversation_id !== opts.conversationId ||
-            response.user_message_id !== requestId ||
-            response.assistant_message.id !== assistantMessageId ||
-            response.assistant_message.content !== content
-          ) {
-            fail("Le payload final v2 ne correspond pas au contenu affiché.");
-            return;
-          }
-          succeed({
-            conversationId: response.conversation_id,
-            messageId: response.assistant_message.id,
-            sourceType: response.sources[0]?.source_type,
-            answerMode: response.outcome,
-            publicResponse: response,
-          });
-        },
-        onHttpError: (status, body) => {
-          if (!receivedDelta && isPublicV2PreflightMiss(status, body)) {
-            startV1();
-            return;
-          }
-          fail(publicV2HttpError(status, body));
-        },
-        onEnd: () => {
-          if (!settled) {
-            fail("Le flux v2 s'est terminé sans payload final.");
-          }
-        },
-        onError: () => {
-          fail("Connexion v2 perdue. Vérifiez votre réseau ou la clé API.");
-        },
-      }
-    ).stop;
-  };
-
-  if (!opts.conversationId) {
-    startV1();
-  } else {
-    void probePublicChatV2(opts.apiKey, probeController.signal)
-      .then((available) => {
-        if (stopped || settled) return;
-        if (available) {
-          startV2();
-        } else {
-          fail(
-            "L’assistant est en cours de configuration. Un administrateur peut vérifier son état dans Projet > Workflow."
-          );
-        }
-      })
-      .catch(() => {
-        if (!stopped) {
-          fail("Impossible de négocier le contrat public v2.");
-        }
-      });
-  }
+  activeStop = streamChatV1(
+    { ...opts, requestId, contractVersion: "v1" },
+    { ...callbacks, onDone: succeed, onError: fail }
+  ).stop;
 
   return {
     completion,
     stop: () => {
       if (stopped) return;
       stopped = true;
-      probeController.abort();
-      activeStop?.();
+      activeStop();
       if (!settled) {
         settled = true;
         settleCompletion(false);
       }
     },
   };
-}
-
-function isPublicV2PreflightMiss(status: number, body: unknown): boolean {
-  if (status !== 412 || !body || typeof body !== "object") return false;
-  const detail = (body as Record<string, unknown>).detail;
-  return (
-    !!detail &&
-    typeof detail === "object" &&
-    (detail as Record<string, unknown>).code === "PUBLIC_V2_NOT_SELECTED"
-  );
-}
-
-function publicProgressLabel(step: string): string {
-  return {
-    planning: "Planification de la réponse...",
-    retrieving: "Consultation des sources...",
-    composing: "Composition de la réponse...",
-    validating: "Validation finale...",
-  }[step] ?? "Traitement en cours...";
-}
-
-function publicV2HttpError(status: number, body: unknown): string {
-  const rawDetail = isRecord(body) ? body.detail : null;
-  const detail = isRecord(rawDetail) ? rawDetail : null;
-  const code = detail && typeof detail.code === "string" ? detail.code : null;
-  const message = detail && typeof detail.message === "string" ? detail.message : null;
-  const labels: Record<string, string> = {
-    PUBLIC_V2_RUNTIME_DISABLED:
-      "Le runtime agentique est désactivé sur le serveur backend.",
-    PUBLIC_V2_REQUEST_ID_REQUIRED:
-      "La requête agentique ne contient pas son identifiant.",
-    PUBLIC_V2_NOT_SELECTED:
-      "La configuration backend n’a pas sélectionné le moteur agentique.",
-  };
-  return (
-    (code && labels[code]) ||
-    message ||
-    (typeof rawDetail === "string" ? rawDetail : null) ||
-    `Le moteur agentique a refusé la requête (HTTP ${status}).`
-  );
-}
-
-function parsePublicChatEventV2(
-  eventName: string,
-  data: string
-): PublicChatSseEventV2 | null {
-  try {
-    const value = JSON.parse(data) as unknown;
-    if (
-      !isRecord(value) ||
-      value.schema_version !== "chat.sse.v2" ||
-      value.event !== eventName ||
-      typeof value.trace_id !== "string" ||
-      !value.trace_id
-    ) {
-      return null;
-    }
-    if (value.event === "progress") {
-      return ["planning", "retrieving", "composing", "validating"].includes(
-        String(value.step)
-      )
-        ? (value as PublicChatSseEventV2)
-        : null;
-    }
-    if (value.event === "delta") {
-      return isUuid(value.assistant_message_id) &&
-        Number.isInteger(value.sequence) &&
-        Number(value.sequence) >= 0 &&
-        typeof value.content === "string" &&
-        value.content.length > 0
-        ? (value as PublicChatSseEventV2)
-        : null;
-    }
-    if (value.event === "final") {
-      return isPublicChatResponseV2(value.response)
-        ? (value as PublicChatSseEventV2)
-        : null;
-    }
-    if (value.event === "error") {
-      return [
-        "temporarily_unavailable",
-        "invalid_request",
-        "quality_rejected",
-      ].includes(String(value.code)) && typeof value.retryable === "boolean"
-        ? (value as PublicChatSseEventV2)
-        : null;
-    }
-    return null;
-  } catch {
-    return null;
-  }
 }
 
 function isPublicChatResponseV2(value: unknown): value is PublicChatResponseV2 {
