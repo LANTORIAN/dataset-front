@@ -12,6 +12,7 @@ import {
 import type { StreamOptions } from "@/lib/api/client";
 import type {
   ChatStreamChunk,
+  ChatResponsePayloadV1,
   NLUResult,
   PublicChatActionV2,
   PublicChatResponseV2,
@@ -38,6 +39,7 @@ export interface StreamDoneMetadata {
   moduleConflicts?: Array<Record<string, unknown>>;
   moduleWarnings?: string[];
   marketplacePlan?: Record<string, unknown>;
+  responsePayload?: ChatResponsePayloadV1;
   publicResponse?: PublicChatResponseV2;
 }
 
@@ -121,6 +123,7 @@ function streamChatV1(
   let messageId: string | undefined;
   let sourceType: string | undefined;
   let marketplacePlan: Record<string, unknown> | undefined;
+  let responsePayload: ChatResponsePayloadV1 | undefined;
   let terminal = false;
   let stopped = false;
 
@@ -153,6 +156,8 @@ function streamChatV1(
           marketplacePlan = parsed.marketplace_plan && typeof parsed.marketplace_plan === "object" && !Array.isArray(parsed.marketplace_plan)
             ? parsed.marketplace_plan as Record<string, unknown>
             : undefined;
+          responsePayload = parseChatResponsePayloadV1(parsed.response_payload) ?? responsePayload;
+          sourceType = responsePayload?.source_category ?? sourceType;
         } catch { /* ignore malformed meta */ }
         return;
       }
@@ -163,11 +168,13 @@ function streamChatV1(
           messageId = typeof parsed.assistant_message_id === "string"
             ? parsed.assistant_message_id
             : messageId;
+          responsePayload = parseChatResponsePayloadV1(parsed.response_payload) ?? responsePayload;
           finishDone({
             conversationId,
             messageId,
-            sourceType,
+            sourceType: responsePayload?.source_category ?? sourceType,
             marketplacePlan,
+            responsePayload,
             responseTime: typeof parsed.response_time_ms === "number"
               ? parsed.response_time_ms / 1000
               : undefined,
@@ -178,6 +185,7 @@ function streamChatV1(
             messageId,
             sourceType,
             marketplacePlan,
+            responsePayload,
           });
         }
         return;
@@ -380,6 +388,84 @@ export function parsePublicChatResponseV2(
   value: unknown
 ): PublicChatResponseV2 | null {
   return isPublicChatResponseV2(value) ? value : null;
+}
+
+export function parseChatResponsePayloadV1(
+  value: unknown
+): ChatResponsePayloadV1 | undefined {
+  if (!isRecord(value) || value.schema_version !== "chat_response_payload.v1") {
+    return undefined;
+  }
+  const data = value.data;
+  if (
+    typeof value.response !== "string" ||
+    !isRecord(data) ||
+    !Array.isArray(data.records) ||
+    !Array.isArray(value.recommendations) ||
+    !Array.isArray(value.actions)
+  ) {
+    return undefined;
+  }
+  const records = data.records.filter(isRecord).map((record) => ({
+    type: typeof record.type === "string" ? record.type : "record",
+    source: typeof record.source === "string" ? record.source : undefined,
+    source_category: typeof record.source_category === "string" ? record.source_category : undefined,
+    dataset: typeof record.dataset === "string" ? record.dataset : null,
+    columns: Array.isArray(record.columns)
+      ? record.columns.filter((item): item is string => typeof item === "string")
+      : undefined,
+    rows: Array.isArray(record.rows)
+      ? record.rows.filter(isRecord).slice(0, 10)
+      : undefined,
+    row_count: typeof record.row_count === "number" ? record.row_count : undefined,
+    text: typeof record.text === "string" ? record.text : undefined,
+  }));
+  const recommendations = value.recommendations.filter(isRecord).flatMap((item) => {
+    const label = typeof item.label === "string" ? item.label.trim() : "";
+    if (!label) return [];
+    return [{
+      id: typeof item.id === "string" ? item.id : undefined,
+      label,
+      priority: typeof item.priority === "string" ? item.priority : undefined,
+      reason: typeof item.reason === "string" ? item.reason : undefined,
+      compatible_with: Array.isArray(item.compatible_with)
+        ? item.compatible_with.filter((entry): entry is string => typeof entry === "string")
+        : undefined,
+      output_type: typeof item.output_type === "string" ? item.output_type : undefined,
+    }];
+  });
+  const actions = value.actions.filter(isRecord).flatMap((item) => {
+    const label = typeof item.label === "string" ? item.label.trim() : "";
+    if (!label) return [];
+    const url = typeof item.url === "string" && isSafePublicUrl(item.url)
+      ? item.url
+      : undefined;
+    return [{
+      action_id: typeof item.action_id === "string" ? item.action_id : undefined,
+      label,
+      url,
+      action_type: typeof item.action_type === "string" ? item.action_type : undefined,
+      confirmation_required: typeof item.confirmation_required === "boolean"
+        ? item.confirmation_required
+        : undefined,
+      description: typeof item.description === "string" ? item.description : undefined,
+    }];
+  });
+  const missing = Array.isArray(value.missing_information)
+    ? value.missing_information.filter((item): item is string => typeof item === "string" && !!item.trim())
+    : undefined;
+  return {
+    schema_version: "chat_response_payload.v1",
+    response: value.response,
+    source_category: typeof value.source_category === "string" ? value.source_category : undefined,
+    data: {
+      records,
+      record_count: typeof data.record_count === "number" ? data.record_count : records.length,
+    },
+    recommendations,
+    actions,
+    missing_information: missing,
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

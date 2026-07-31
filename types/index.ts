@@ -370,6 +370,48 @@ export interface ChatStreamChunk {
   response_time?: number;
 }
 
+export interface ChatResponseDataRecordV1 {
+  type: "database_rows" | "document_evidence" | string;
+  source?: string;
+  source_category?: string;
+  dataset?: string | null;
+  columns?: string[];
+  rows?: Array<Record<string, unknown>>;
+  row_count?: number;
+  text?: string;
+}
+
+export interface ChatResponseRecommendationV1 {
+  id?: string;
+  label: string;
+  priority?: string;
+  reason?: string;
+  compatible_with?: string[];
+  output_type?: string;
+}
+
+export interface ChatResponseActionV1 {
+  action_id?: string;
+  label: string;
+  url?: string;
+  action_type?: string;
+  confirmation_required?: boolean;
+  description?: string;
+}
+
+export interface ChatResponsePayloadV1 {
+  schema_version: "chat_response_payload.v1";
+  response: string;
+  source_category?: string;
+  data: {
+    records: ChatResponseDataRecordV1[];
+    record_count?: number;
+  };
+  recommendations: ChatResponseRecommendationV1[];
+  actions: ChatResponseActionV1[];
+  missing_information?: string[];
+}
+
 export type PublicChatOutcome =
   | "answer"
   | "recommendation"

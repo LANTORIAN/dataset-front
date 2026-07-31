@@ -40,6 +40,8 @@ import type {
   PublicChatActionV2,
   PublicChatClarificationV2,
   PublicChatResponseV2,
+  ChatResponsePayloadV1,
+  ChatResponseDataRecordV1,
 } from "@/types";
 import { useAuth } from "@/lib/context/auth-context";
 import { MindLogo } from "@/components/branding/mind-logo";
@@ -70,6 +72,7 @@ interface UiMessage extends ConversationMessage {
   recovery_used?: boolean;
   recovery_reason?: string;
   recovery_actions?: string[];
+  response_payload?: ChatResponsePayloadV1;
   public_response?: PublicChatResponseV2;
 }
 
@@ -386,8 +389,10 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
                     marketplace_plan: meta.marketplacePlan,
                     recovery_used: meta.recoveryUsed,
                     recovery_reason: meta.recoveryReason,
-                     recovery_actions: meta.recoveryActions,
-                     public_response: meta.publicResponse,
+                    recovery_actions: meta.recoveryActions,
+                    response_payload: meta.responsePayload,
+                    public_response: meta.publicResponse,
+                    content: m.content || meta.responsePayload?.response || "",
                     progress_steps: m.progress_steps ?? [],
                     trace_events: m.trace_events ?? [],
                   }
@@ -653,6 +658,10 @@ type ActionLink = {
   description?: string;
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
 const URL_RE = /https?:\/\/[^\s)\]}]+/gi;
 
 function normalizeHeading(value: string): string {
@@ -690,6 +699,17 @@ function readMarketplaceActionLinks(plan: Record<string, unknown> | undefined): 
   }, []);
 }
 
+function isSafeDisplayUrl(value: string | undefined): value is string {
+  if (!value) return false;
+  if (value.startsWith("/")) return !value.startsWith("//");
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "https:" || parsed.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
 function parseActionLine(line: string): ActionLink[] {
   URL_RE.lastIndex = 0;
   const matches = [...line.matchAll(URL_RE)];
@@ -717,7 +737,10 @@ function parseActionLine(line: string): ActionLink[] {
   });
 }
 
-function extractActionLinks(content: string, plan: Record<string, unknown> | undefined): ActionLink[] {
+function extractActionLinks(
+  content: string,
+  plan: Record<string, unknown> | undefined
+): ActionLink[] {
   const links = readMarketplaceActionLinks(plan);
   const raw = stripCodeFences(content);
   const lines = raw.split("\n");
@@ -1039,7 +1062,9 @@ function readNumber(obj: Record<string, unknown>, keys: string[]): number | unde
 
 function marketplaceSummary(plan: Record<string, unknown> | undefined): string | null {
   if (!plan || plan.needed === false) return null;
-  const actions = Array.isArray(plan.actions) ? plan.actions.length : 0;
+  const siteActions = Array.isArray(plan.site_actions) ? plan.site_actions.length : 0;
+  const nextActions = Array.isArray(plan.next_actions) ? plan.next_actions.length : 0;
+  const actions = siteActions + nextActions;
   const recommendations = Array.isArray(plan.recommendations) ? plan.recommendations.length : 0;
   if (!actions && !recommendations && !plan.needed) return null;
   return `${recommendations} recommandation(s), ${actions} action(s)`;
@@ -1483,6 +1508,166 @@ function PublicResponsePanel({
   );
 }
 
+function payloadHasVisibleContent(payload: ChatResponsePayloadV1 | undefined): payload is ChatResponsePayloadV1 {
+  if (!payload) return false;
+  return payload.recommendations.length > 0 ||
+    payload.actions.length > 0 ||
+    (payload.data?.records?.length ?? 0) > 0 ||
+    (payload.missing_information?.length ?? 0) > 0;
+}
+
+function displayCellValue(value: unknown): string {
+  if (value === null || value === undefined || value === "") return "-";
+  if (typeof value === "string") return value.length > 120 ? `${value.slice(0, 117)}...` : value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  try {
+    const encoded = JSON.stringify(value);
+    return encoded.length > 120 ? `${encoded.slice(0, 117)}...` : encoded;
+  } catch {
+    return String(value);
+  }
+}
+
+function recordColumns(record: ChatResponseDataRecordV1): string[] {
+  const rows = Array.isArray(record.rows) ? record.rows.filter(isRecord) : [];
+  const explicit = Array.isArray(record.columns) ? record.columns.filter(Boolean) : [];
+  const fromRows = rows.length ? Object.keys(rows[0]) : [];
+  return Array.from(new Set([...explicit, ...fromRows])).slice(0, 5);
+}
+
+function StructuredResponsePanel({ payload }: { payload: ChatResponsePayloadV1 | undefined }) {
+  if (!payloadHasVisibleContent(payload)) return null;
+  const databaseRecords = payload.data.records.filter((record) =>
+    record.type === "database_rows" && Array.isArray(record.rows) && record.rows.length > 0
+  );
+  const documentRecords = payload.data.records.filter((record) =>
+    record.type === "document_evidence" && typeof record.text === "string" && record.text.trim()
+  );
+  const linkActions = payload.actions.filter((action) => isSafeDisplayUrl(action.url));
+  const nextActions = payload.actions.filter((action) => !isSafeDisplayUrl(action.url));
+
+  return (
+    <div className="mt-3 space-y-3 border-t border-border/50 pt-3">
+      <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-foreground">
+        <span className="inline-flex items-center gap-1.5">
+          <ShoppingBag className="size-3.5 text-primary" /> Marketplace
+        </span>
+        {payload.source_category && (
+          <Badge variant="outline" className="h-5 text-[10px]">{payload.source_category}</Badge>
+        )}
+      </div>
+
+      {payload.recommendations.length > 0 && (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {payload.recommendations.slice(0, 4).map((recommendation, index) => (
+            <div key={recommendation.id ?? `${recommendation.label}-${index}`} className="rounded-xl border border-primary/15 bg-background/55 p-3">
+              <div className="flex items-start justify-between gap-2">
+                <p className="font-medium leading-snug">{recommendation.label}</p>
+                {recommendation.priority && (
+                  <Badge variant={recommendation.priority === "primary" ? "default" : "outline"} className="h-5 shrink-0 text-[10px]">
+                    {recommendation.priority === "primary" ? "Recommandé" : "Option"}
+                  </Badge>
+                )}
+              </div>
+              {recommendation.reason && (
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{recommendation.reason}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {(linkActions.length > 0 || nextActions.length > 0) && (
+        <div className="space-y-2">
+          {linkActions.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {linkActions.slice(0, 4).map((action, index) => (
+                <Button key={action.action_id ?? `${action.label}-${index}`} asChild size="sm" variant={index === 0 ? "default" : "secondary"} className="h-auto min-h-9 max-w-full rounded-full px-3 py-2 text-xs shadow-sm">
+                  <a href={action.url ?? "#"} target={action.url?.startsWith("/") ? undefined : "_blank"} rel="noopener noreferrer">
+                    <ExternalLink className="size-3.5" />
+                    <span className="max-w-[220px] truncate sm:max-w-[280px]">{action.label}</span>
+                  </a>
+                </Button>
+              ))}
+            </div>
+          )}
+          {nextActions.length > 0 && (
+            <div className="grid gap-1.5 text-xs text-muted-foreground">
+              {nextActions.slice(0, 4).map((action, index) => (
+                <div key={action.action_id ?? `${action.label}-${index}`} className="flex items-start gap-2 rounded-lg border border-border/40 bg-background/45 px-2.5 py-2">
+                  <ChevronRight className="mt-0.5 size-3.5 shrink-0 text-primary" />
+                  <span>{action.label}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {databaseRecords.length > 0 && (
+        <div className="space-y-2">
+          {databaseRecords.slice(0, 2).map((record, recordIndex) => {
+            const columns = recordColumns(record);
+            const rows = Array.isArray(record.rows) ? record.rows.filter(isRecord).slice(0, 4) : [];
+            if (!columns.length || !rows.length) return null;
+            return (
+              <div key={`${record.dataset ?? "data"}-${recordIndex}`} className="overflow-hidden rounded-xl border border-border/50 bg-background/45">
+                <div className="flex items-center justify-between gap-2 border-b border-border/40 px-3 py-2 text-xs">
+                  <span className="inline-flex items-center gap-1.5 font-medium">
+                    <Database className="size-3.5 text-primary" /> {record.dataset ?? "Données projet"}
+                  </span>
+                  <Badge variant="outline" className="h-5 text-[10px]">{record.row_count ?? rows.length} ligne(s)</Badge>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/35">
+                      <tr>
+                        {columns.map((column) => (
+                          <th key={column} className="px-3 py-2 text-left font-medium whitespace-nowrap">{column.replace(/_/g, " ")}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((row, rowIndex) => (
+                        <tr key={rowIndex} className="border-t border-border/35">
+                          {columns.map((column) => (
+                            <td key={`${rowIndex}-${column}`} className="px-3 py-2 align-top whitespace-nowrap text-muted-foreground">
+                              {displayCellValue(row[column])}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {documentRecords.length > 0 && (
+        <div className="space-y-1.5">
+          {documentRecords.slice(0, 3).map((record, index) => (
+            <div key={`${record.source ?? "doc"}-${index}`} className="rounded-lg border border-border/40 bg-background/35 px-3 py-2 text-xs text-muted-foreground">
+              <div className="mb-1 flex items-center gap-1.5 font-medium text-foreground">
+                <FileSearch className="size-3.5 text-primary" /> Preuve documentaire
+              </div>
+              <p className="leading-relaxed">{record.text}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {(payload.missing_information?.length ?? 0) > 0 && (
+        <div className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning-foreground">
+          À préciser : {payload.missing_information?.slice(0, 4).map((item) => item.replace(/_/g, " ")).join(", ")}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MessageBubble({
   message,
   isAdmin,
@@ -1596,6 +1781,9 @@ function MessageBubble({
               onPublicAction={onPublicAction}
               onSubmitClarification={onSubmitClarification}
             />
+          )}
+          {!isUser && !message.public_response && (
+            <StructuredResponsePanel payload={message.response_payload} />
           )}
           {message.streaming && message.content && (
             <span className="inline-block w-0.5 h-3.5 bg-current ml-0.5 animate-pulse align-middle" />
