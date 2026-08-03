@@ -1608,7 +1608,11 @@ function StructuredResponsePanel({ payload }: { payload: ChatResponsePayloadV1 |
         <div className="space-y-2">
           {databaseRecords.slice(0, 2).map((record, recordIndex) => {
             const columns = recordColumns(record);
-            const rows = Array.isArray(record.rows) ? record.rows.filter(isRecord).slice(0, 4) : [];
+            const rows = Array.isArray(record.rows) ? record.rows.filter(isRecord).slice(0, 10) : [];
+            const totalRows = record.row_count ?? rows.length;
+            const rowBadge = totalRows > rows.length
+              ? `${rows.length}/${totalRows} ligne(s)`
+              : `${rows.length} ligne(s)`;
             if (!columns.length || !rows.length) return null;
             return (
               <div key={`${record.dataset ?? "data"}-${recordIndex}`} className="overflow-hidden rounded-xl border border-border/50 bg-background/45">
@@ -1616,7 +1620,7 @@ function StructuredResponsePanel({ payload }: { payload: ChatResponsePayloadV1 |
                   <span className="inline-flex items-center gap-1.5 font-medium">
                     <Database className="size-3.5 text-primary" /> {record.dataset ?? "Données projet"}
                   </span>
-                  <Badge variant="outline" className="h-5 text-[10px]">{record.row_count ?? rows.length} ligne(s)</Badge>
+                  <Badge variant="outline" className="h-5 text-[10px]">{rowBadge}</Badge>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
