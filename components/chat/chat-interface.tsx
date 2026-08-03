@@ -128,44 +128,15 @@ const AGENTIC_CAPABILITIES = [
   { label: "Marketplace", description: "actions recommandées", icon: ShoppingBag },
 ];
 
-const THINKING_STAGES = [
-  { title: "Compréhension", short: "Route", icon: BrainCircuit },
-  { title: "Choix des sources", short: "Sources", icon: GitBranch },
-  { title: "Consultation", short: "Recherche", icon: FileSearch },
-  { title: "Sélection des preuves", short: "Preuve", icon: ShieldCheck },
-  { title: "Réponse", short: "Réponse", icon: CheckCircle2 },
-];
-
-const STEP_STAGE_INDEX: Record<string, number> = {
-  init: 0,
-  route: 0,
-  history: 0,
-  sources: 1,
-  rag: 2,
-  vector: 2,
-  vector_search: 2,
-  knowledge: 2,
-  tfidf: 2,
-  tfidf_fallback: 2,
-  db: 2,
-  database_search: 2,
-  external: 2,
-  external_search: 2,
-  select: 3,
-  verify: 3,
-  db_answer: 4,
-  action: 4,
-  faq: 4,
-  recover: 4,
-  answer: 4,
-};
-
 const STEP_ICONS: Record<string, typeof BrainCircuit> = {
   init: BrainCircuit,
+  analyze: BrainCircuit,
   route: GitBranch,
   history: Layers3,
   sources: GitBranch,
+  searching: FileSearch,
   rag: FileSearch,
+  documents: FileSearch,
   vector: FileSearch,
   vector_search: FileSearch,
   knowledge: FileSearch,
@@ -176,11 +147,17 @@ const STEP_ICONS: Record<string, typeof BrainCircuit> = {
   external: Globe2,
   external_search: Globe2,
   select: ShieldCheck,
+  preparing: ShieldCheck,
   verify: ShieldCheck,
+  postprocess: ShieldCheck,
   db_answer: Database,
+  database: Database,
   action: ShoppingBag,
   faq: FileSearch,
   recover: AlertTriangle,
+  source_delay: AlertTriangle,
+  generate: BrainCircuit,
+  save: CheckCircle2,
   answer: CheckCircle2,
 };
 
@@ -188,33 +165,14 @@ function normalizeProgressStep(step: string | undefined): string {
   return (step || "progress").trim().toLowerCase();
 }
 
-function progressStageIndex(step: string | undefined, fallbackIndex: number): number {
-  const key = normalizeProgressStep(step);
-  return STEP_STAGE_INDEX[key] ?? Math.min(Math.max(fallbackIndex, 0), THINKING_STAGES.length - 1);
-}
-
 function isWarningProgressStep(step: string | undefined): boolean {
-  return normalizeProgressStep(step) === "recover";
+  return ["recover", "source_delay"].includes(normalizeProgressStep(step));
 }
 
 function ProgressStepIcon({ step, className }: { step?: string; className?: string }) {
   const key = normalizeProgressStep(step);
-  if (STEP_ICONS[key] === GitBranch) return <GitBranch className={className} />;
-  if (STEP_ICONS[key] === Layers3) return <Layers3 className={className} />;
-  if (STEP_ICONS[key] === FileSearch) return <FileSearch className={className} />;
-  if (STEP_ICONS[key] === Database) return <Database className={className} />;
-  if (STEP_ICONS[key] === Globe2) return <Globe2 className={className} />;
-  if (STEP_ICONS[key] === ShieldCheck) return <ShieldCheck className={className} />;
-  if (STEP_ICONS[key] === ShoppingBag) return <ShoppingBag className={className} />;
-  if (STEP_ICONS[key] === AlertTriangle) return <AlertTriangle className={className} />;
-  if (STEP_ICONS[key] === CheckCircle2) return <CheckCircle2 className={className} />;
-
-  const stageIndex = progressStageIndex(key, 0);
-  if (stageIndex === 1) return <GitBranch className={className} />;
-  if (stageIndex === 2) return <FileSearch className={className} />;
-  if (stageIndex === 3) return <ShieldCheck className={className} />;
-  if (stageIndex === 4) return <CheckCircle2 className={className} />;
-  return <BrainCircuit className={className} />;
+  const Icon = STEP_ICONS[key] ?? BrainCircuit;
+  return <Icon className={className} />;
 }
 
 interface Props {
@@ -310,7 +268,7 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
       content:         "",
       timestamp:       new Date().toISOString(),
       streaming:       true,
-      progress_steps:  [{ step: "init", message: "Connexion au moteur IA..." }],
+      progress_steps:  [{ step: "init", message: "Connexion au service de réponse..." }],
       trace_events:    [],
     };
 
@@ -1247,10 +1205,8 @@ function AgenticThinking({
 }) {
   const [now, setNow] = useState(() => Date.now());
   const activeSteps = steps?.length ? steps : [{ step: "init", message: "Analyse de votre question..." }];
-  const latestStep = activeSteps[activeSteps.length - 1];
-  const currentIndex = progressStageIndex(latestStep?.step, activeSteps.length - 1);
   const latest = activeSteps[activeSteps.length - 1]?.message ?? "Orchestration en cours...";
-  const currentStage = THINKING_STAGES[currentIndex];
+  const completedSteps = activeSteps.slice(0, -1).slice(-5).reverse();
   const startedAtMs = startedAt ? new Date(startedAt).getTime() : Number.NaN;
   const elapsedSeconds = Number.isFinite(startedAtMs)
     ? Math.max(0, Math.floor((now - startedAtMs) / 1000))
@@ -1266,99 +1222,58 @@ function AgenticThinking({
 
   if (compact) {
     return (
-      <div className="mt-2 rounded-xl border border-primary/15 bg-background/55 p-2.5 text-xs shadow-sm">
+      <div className="mt-3 flex items-center gap-2.5 text-xs text-muted-foreground" role="status" aria-live="polite">
         <div className="flex items-center gap-2">
-          <span className="relative flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <span className="absolute inset-0 rounded-lg border border-primary/25 animate-ping" />
-            <ProgressStepIcon step={latestStep?.step} className="relative size-3.5" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5 font-medium text-foreground">
-              Assistant Agentique
-              <Badge variant="outline" className="h-4 rounded-full border-primary/20 bg-primary/5 px-1.5 text-[9px] text-primary">
-                {currentStage.short}
-              </Badge>
-              <Badge variant="secondary" className="h-4 rounded-full bg-primary/10 px-1.5 text-[9px] text-primary">Multi-agents</Badge>
-              <span className="text-[10px] font-normal text-muted-foreground">{elapsedLabel}</span>
-            </div>
-            <p className="truncate text-muted-foreground">{latest}</p>
-          </div>
+          <Loader2 className="size-3.5 shrink-0 text-primary motion-safe:animate-spin" />
+          <span className="line-clamp-1">{latest}</span>
+          <span className="shrink-0 tabular-nums text-muted-foreground/70">{elapsedLabel}</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-2xl py-1 text-sm" role="status" aria-live="polite">
-      <div className="flex items-center gap-3 text-muted-foreground">
-        <span className="relative flex size-5 shrink-0 items-center justify-center">
-          <span className="absolute inset-0 rounded-full border border-primary/35 border-t-primary animate-spin" />
-          <span className="size-1.5 rounded-full bg-primary" />
+    <div className="w-full max-w-2xl py-2 text-sm" role="status" aria-live="polite" aria-atomic="false">
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center text-primary">
+          <Loader2 className="size-4 motion-safe:animate-spin" />
         </span>
-        <span className="truncate text-base text-muted-foreground">{latest}</span>
-        <span className="shrink-0 rounded-full bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
+        <p className="min-w-0 flex-1 leading-6 text-foreground/85">{latest}</p>
+        <span className="shrink-0 pt-0.5 text-xs tabular-nums text-muted-foreground">
           {elapsedLabel}
         </span>
         {onStop && (
-          <button type="button" onClick={onStop} className="ml-auto rounded-full px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive">
+          <button
+            type="button"
+            onClick={onStop}
+            className="-mt-1 min-h-8 shrink-0 rounded-lg px-2.5 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
             Arrêter
           </button>
         )}
       </div>
 
-      <div className="ml-2.5 mt-4 border-l border-border/70 pl-5">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="size-1.5 rounded-full bg-muted-foreground/60" />
-          <span className="font-semibold text-foreground">{currentStage.title}</span>
-          <Badge variant="secondary" className="h-6 rounded-full bg-muted px-2 text-xs text-muted-foreground">
-            {currentIndex + 1}/{THINKING_STAGES.length}
-          </Badge>
-          <Badge variant="outline" className="h-6 rounded-full border-primary/20 bg-primary/5 px-2 text-xs text-primary">
-            Multi-agents
-          </Badge>
-        </div>
-
-        <div className="mt-3 grid gap-1.5 sm:grid-cols-5">
-          {THINKING_STAGES.map((step, idx) => {
-            const StepIcon = step.icon;
-            const done = idx < currentIndex;
-            const active = idx === currentIndex;
-            return (
-              <div key={step.title} className={cn(
-                "flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] transition-colors",
-                done && "border-success/25 bg-success/10 text-success",
-                active && "border-primary/25 bg-primary/10 text-primary",
-                !done && !active && "border-border/60 bg-background/50 text-muted-foreground"
-              )}>
-                {done ? <CheckCircle2 className="size-3" /> : <StepIcon className={cn("size-3", active && "animate-pulse")} />}
-                <span className="truncate">{step.short}</span>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="mt-4 space-y-2">
-          {activeSteps.slice(-4).map((s, idx, visibleSteps) => {
-            const isLast = idx === visibleSteps.length - 1;
+      {completedSteps.length > 0 && (
+        <div className="mt-4 space-y-3">
+          {completedSteps.map((s, idx) => {
             const isWarning = isWarningProgressStep(s.step);
             return (
-              <div key={`${s.step}-${idx}`} className="flex items-center gap-2 text-xs text-muted-foreground">
+              <div key={`${s.step}-${s.message}-${idx}`} className="flex items-start gap-3 text-xs text-muted-foreground">
                 <span className={cn(
-                  "flex size-5 shrink-0 items-center justify-center rounded-full border",
+                  "flex size-6 shrink-0 items-center justify-center",
                   isWarning
-                    ? "border-warning/30 bg-warning/10 text-warning-foreground"
-                    : isLast
-                      ? "border-primary/25 bg-primary/10 text-primary"
-                      : "border-border/60 bg-background/50 text-muted-foreground"
+                    ? "text-warning-foreground"
+                    : "text-muted-foreground/75"
                 )}>
-                  <ProgressStepIcon step={s.step} className={cn("size-3", isLast && !isWarning && "animate-pulse")} />
+                  <ProgressStepIcon step={s.step} className="size-4" />
                 </span>
-                <span className={cn("truncate", isLast && "font-medium text-foreground")}>{s.message}</span>
+                <span className="min-w-0 flex-1 leading-6">{s.message}</span>
+                {!isWarning && <CheckCircle2 className="mt-1 size-3.5 shrink-0 text-success/75" />}
               </div>
             );
           })}
         </div>
-      </div>
+      )}
     </div>
   );
 }
