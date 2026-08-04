@@ -45,6 +45,7 @@ import type {
 } from "@/types";
 import { useAuth } from "@/lib/context/auth-context";
 import { MindLogo } from "@/components/branding/mind-logo";
+import { AssistantResponse } from "@/components/chat/assistant-response";
 
 // ── UI message ─────────────────────────────────────────────────────────────
 
@@ -1644,8 +1645,8 @@ function MessageBubble({
       </div>
 
       <div className={cn(
-        "space-y-1",
-        showAgenticPanel ? "min-w-0 flex-1" : "max-w-[80%]",
+        "min-w-0 space-y-1",
+        showAgenticPanel || !isUser ? "flex-1 sm:max-w-3xl" : "max-w-[85%]",
         isUser && "flex flex-col items-end"
       )}>
         {/* Bubble */}
@@ -1657,7 +1658,7 @@ function MessageBubble({
                 "rounded-2xl px-4 py-2.5",
                 isUser
                   ? "bg-primary text-primary-foreground rounded-tr-sm"
-                  : "bg-muted text-foreground rounded-tl-sm"
+                  : "rounded-tl-sm border border-border/70 bg-card/90 px-4 py-3 text-foreground shadow-sm sm:px-5 sm:py-4"
               )
         )}>
           {message.streaming && !message.content ? (
@@ -1690,7 +1691,14 @@ function MessageBubble({
             ) : isAsciiTable ? (
               <pre className="whitespace-pre overflow-x-auto text-xs leading-relaxed font-mono">{displayContent}</pre>
             ) : (
-              displayContent && <p className="whitespace-pre-wrap leading-relaxed">{displayContent}</p>
+              !isUser && displayContent ? (
+                <AssistantResponse
+                  content={displayContent}
+                  sources={message.public_response?.sources}
+                />
+              ) : (
+                displayContent && <p className="whitespace-pre-wrap leading-relaxed">{displayContent}</p>
+              )
             )
           )}
           {!isUser && <ActionLinkButtons links={actionLinks} />}
