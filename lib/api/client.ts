@@ -270,6 +270,7 @@ export interface StreamOptions {
   apiKey: string;
   conversationId?: string;
   sessionId?: string;
+  userId?: string;
   requestId?: string;
   contractVersion?: "v1" | "v2";
   clarificationResponse?: unknown;
@@ -293,6 +294,7 @@ export function createChatStream(
   const body: Record<string, unknown> = { message: opts.message };
   if (opts.conversationId) body.conversation_id = opts.conversationId;
   if (opts.sessionId)      body.session_id      = opts.sessionId;
+  if (opts.userId)         body.user_id         = opts.userId;
   if (opts.requestId)      body.request_id      = opts.requestId;
   if (opts.clarificationResponse) {
     body.clarification_response = opts.clarificationResponse;
