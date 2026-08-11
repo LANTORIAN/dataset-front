@@ -183,8 +183,18 @@ interface Props {
   onConversationCreated?: (id: string) => void;
 }
 
+function getBrowserChatSessionId(userId?: string): string | undefined {
+  if (!userId || typeof window === "undefined") return undefined;
+  const storageKey = `agentic:chat:session:${userId}`;
+  const existing = window.sessionStorage.getItem(storageKey);
+  if (existing) return existing;
+  const next = crypto.randomUUID();
+  window.sessionStorage.setItem(storageKey, next);
+  return next;
+}
+
 export function ChatInterface({ project, apiKey, conversationId, onConversationCreated }: Props) {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const [messages, setMessages]       = useState<UiMessage[]>([]);
   const [input, setInput]             = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -238,12 +248,13 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
       return false;
     }
     sendingRef.current = true;
+    const sessionId = getBrowserChatSessionId(user?.id);
 
     let convId = activeConvId;
 
     // If no conversation yet, create one
     if (!convId) {
-      const result = await conversationsService.create(apiKey);
+      const result = await conversationsService.create(apiKey, sessionId, undefined, user?.id);
       if (!result.ok) {
         sendingRef.current = false;
         toast.error("Impossible de créer une conversation");
@@ -283,6 +294,8 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
         message: userMsg.content,
         apiKey,
         conversationId: convId,
+        sessionId,
+        userId: user?.id,
         requestId: userMsg.id,
         clarificationResponse: turn?.clarificationResponse,
       },

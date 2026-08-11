@@ -40,11 +40,17 @@ export const conversationsService = {
   /**
    * Crée une nouvelle conversation (optionnel : message initial).
    */
-  create(apiKey: string, sessionId?: string, initialMessage?: string) {
+  create(
+    apiKey: string,
+    sessionId?: string,
+    initialMessage?: string,
+    userId?: string,
+  ) {
     return withService(
       () =>
         keyPost<Conversation>("/conversations", apiKey, {
           ...(sessionId ? { session_id: sessionId } : {}),
+          ...(userId ? { user_id: userId } : {}),
           ...(initialMessage ? { initial_message: initialMessage } : {}),
         }),
       { showErrorToast: true }
