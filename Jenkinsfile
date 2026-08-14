@@ -77,7 +77,7 @@ pipeline {
         stage('Deploy (Coolify)') {
             steps {
                 withCredentials([string(credentialsId: 'COOLIFY_TOKEN', variable: 'COOLIFY_API_TOKEN')]) {
-                    sh 'curl -sf -w "\\nHTTP Status: %{http_code}\\n" -H "Authorization: Bearer $COOLIFY_API_TOKEN" "$COOLIFY_WEBHOOK"'
+                    sh 'curl -sf -w "\\nHTTP Status: %{http_code}\\n" -H "Authorization: Bearer $COOLIFY_API_TOKEN" -X POST "$COOLIFY_WEBHOOK"'
                 }
             }
         }
