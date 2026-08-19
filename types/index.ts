@@ -381,6 +381,21 @@ export interface ChatResponseDataRecordV1 {
   text?: string;
 }
 
+export interface ChatResponseCatalogItemV1 {
+  name: string;
+  images: string[];
+  description?: string;
+  price?: string;
+  currency?: string;
+  url?: string;
+  availability?: string;
+}
+
+export interface ChatResponseCatalogV1 {
+  kind: "products";
+  items: ChatResponseCatalogItemV1[];
+}
+
 export interface ChatResponseRecommendationV1 {
   id?: string;
   label: string;
@@ -406,6 +421,7 @@ export interface ChatResponsePayloadV1 {
   data: {
     records: ChatResponseDataRecordV1[];
     record_count?: number;
+    catalog?: ChatResponseCatalogV1;
   };
   recommendations: ChatResponseRecommendationV1[];
   actions: ChatResponseActionV1[];

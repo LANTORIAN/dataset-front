@@ -60,6 +60,12 @@ export interface ActionConfirmationResult {
   confirmed_at: string;
 }
 
+export interface StreamProgress {
+  step: string;
+  message: string;
+  retryAfterSeconds?: number;
+}
+
 export async function confirmPublicChatAction(
   action: PublicChatActionV2,
   conversationId: string,
@@ -110,7 +116,7 @@ export interface StreamCallbacks {
   /** Appelé en cas d'erreur (réseau ou erreur renvoyée par le backend). */
   onError: (message: string) => void;
   /** Appelé à chaque étape de progression côté backend. */
-  onProgress?: (progress: { step: string; message: string }) => void;
+  onProgress?: (progress: StreamProgress) => void;
   /** Appelé pour les événements de raisonnement/vérification destinés au debug UI. */
   onTrace?: (trace: { kind: "reasoning" | "verify"; title: string; message: string }) => void;
 }
@@ -201,7 +207,11 @@ function streamChatV1(
           const parsed = JSON.parse(data) as Record<string, unknown>;
           const step = typeof parsed.step === "string" ? parsed.step : "progress";
           const message = typeof parsed.message === "string" ? parsed.message : "Traitement en cours...";
-          callbacks.onProgress?.({ step, message });
+          const rawRetryAfter = parsed.retry_after_seconds;
+          const retryAfterSeconds = typeof rawRetryAfter === "number" && Number.isFinite(rawRetryAfter)
+            ? Math.max(1, Math.min(300, Math.ceil(rawRetryAfter)))
+            : undefined;
+          callbacks.onProgress?.({ step, message, retryAfterSeconds });
         } catch {
           callbacks.onProgress?.({ step: "progress", message: data || "Traitement en cours..." });
         }
@@ -420,6 +430,26 @@ export function parseChatResponsePayloadV1(
     row_count: typeof record.row_count === "number" ? record.row_count : undefined,
     text: typeof record.text === "string" ? record.text : undefined,
   }));
+  const catalog = isRecord(data.catalog) && data.catalog.kind === "products" && Array.isArray(data.catalog.items)
+    ? {
+        kind: "products" as const,
+        items: data.catalog.items.filter(isRecord).flatMap((item) => {
+          const name = typeof item.name === "string" ? item.name.trim() : "";
+          if (!name) return [];
+          return [{
+            name,
+            images: Array.isArray(item.images)
+              ? item.images.filter((image): image is string => typeof image === "string" && isSafePublicUrl(image)).slice(0, 6)
+              : [],
+            description: typeof item.description === "string" ? item.description : undefined,
+            price: typeof item.price === "string" ? item.price : undefined,
+            currency: typeof item.currency === "string" ? item.currency : undefined,
+            url: typeof item.url === "string" && isSafePublicUrl(item.url) ? item.url : undefined,
+            availability: typeof item.availability === "string" ? item.availability : undefined,
+          }];
+        }).slice(0, 10),
+      }
+    : undefined;
   const recommendations = value.recommendations.filter(isRecord).flatMap((item) => {
     const label = typeof item.label === "string" ? item.label.trim() : "";
     if (!label) return [];
@@ -461,6 +491,7 @@ export function parseChatResponsePayloadV1(
     data: {
       records,
       record_count: typeof data.record_count === "number" ? data.record_count : records.length,
+      catalog: catalog?.items.length ? catalog : undefined,
     },
     recommendations,
     actions,
