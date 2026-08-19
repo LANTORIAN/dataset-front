@@ -14,7 +14,9 @@ import {
   FileSearch,
   GitBranch,
   Globe2,
+  Clock3,
   Layers3,
+  ImageOff,
   ShoppingBag,
   ExternalLink,
 } from "lucide-react";
@@ -117,7 +119,12 @@ function mergeConversationMessages(
   return merged;
 }
 
-type ProgressStep = { step: string; message: string };
+type ProgressStep = {
+  step: string;
+  message: string;
+  retryAfterSeconds?: number;
+  receivedAt?: number;
+};
 
 const MAX_PROGRESS_STEPS = 14;
 
@@ -157,6 +164,7 @@ const STEP_ICONS: Record<string, typeof BrainCircuit> = {
   faq: FileSearch,
   recover: AlertTriangle,
   source_delay: AlertTriangle,
+  rate_limit_wait: Clock3,
   generate: BrainCircuit,
   save: CheckCircle2,
   answer: CheckCircle2,
@@ -167,7 +175,7 @@ function normalizeProgressStep(step: string | undefined): string {
 }
 
 function isWarningProgressStep(step: string | undefined): boolean {
-  return ["recover", "source_delay"].includes(normalizeProgressStep(step));
+  return ["recover", "source_delay", "rate_limit_wait"].includes(normalizeProgressStep(step));
 }
 
 function ProgressStepIcon({ step, className }: { step?: string; className?: string }) {
@@ -305,17 +313,25 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
             prev.map((m) => m.id === assistantId ? { ...m, content: m.content + text } : m)
           ),
 
-        onProgress: ({ step, message }) =>
+        onProgress: ({ step, message, retryAfterSeconds }) =>
           setMessages((prev) =>
             prev.map((m) => {
               if (m.id !== assistantId) return m;
               const existing = m.progress_steps ?? [];
+              const progress = {
+                step,
+                message,
+                retryAfterSeconds,
+                receivedAt: Date.now(),
+              };
               const alreadyLogged = existing.some(
                 (s) => s.step === step && s.message === message
               );
               const next = alreadyLogged
-                ? existing
-                : [...existing, { step, message }].slice(-MAX_PROGRESS_STEPS);
+                ? existing.map((item) =>
+                    item.step === step && item.message === message ? progress : item
+                  )
+                : [...existing, progress].slice(-MAX_PROGRESS_STEPS);
               return { ...m, progress_steps: next };
             })
           ),
@@ -1218,8 +1234,22 @@ function AgenticThinking({
   startedAt?: string;
 }) {
   const [now, setNow] = useState(() => Date.now());
-  const activeSteps = steps?.length ? steps : [{ step: "init", message: "Analyse de votre question..." }];
-  const latest = activeSteps[activeSteps.length - 1]?.message ?? "Orchestration en cours...";
+  const activeSteps: ProgressStep[] = steps?.length
+    ? steps
+    : [{ step: "init", message: "Analyse de votre question..." }];
+  const latestStep = activeSteps[activeSteps.length - 1];
+  const rateLimitWait = normalizeProgressStep(latestStep?.step) === "rate_limit_wait";
+  const retryRemaining = rateLimitWait && latestStep?.retryAfterSeconds
+    ? Math.max(
+        0,
+        latestStep.retryAfterSeconds - Math.floor((now - (latestStep.receivedAt ?? now)) / 1000)
+      )
+    : undefined;
+  const latest = rateLimitWait && retryRemaining !== undefined
+    ? retryRemaining > 0
+      ? `Rate limit du fournisseur IA. Reprise automatique dans ${retryRemaining} s...`
+      : "Rate limit terminé. Nouvelle tentative auprès du fournisseur IA..."
+    : latestStep?.message ?? "Orchestration en cours...";
   const completedSteps = activeSteps.slice(0, -1).slice(-5).reverse();
   const startedAtMs = startedAt ? new Date(startedAt).getTime() : Number.NaN;
   const elapsedSeconds = Number.isFinite(startedAtMs)
@@ -1238,8 +1268,12 @@ function AgenticThinking({
     return (
       <div className="mt-3 flex items-center gap-2.5 text-xs text-muted-foreground" role="status" aria-live="polite">
         <div className="flex items-center gap-2">
-          <Loader2 className="size-3.5 shrink-0 text-primary motion-safe:animate-spin" />
-          <span className="line-clamp-1">{latest}</span>
+          {rateLimitWait ? (
+            <Clock3 className="size-3.5 shrink-0 text-warning-foreground motion-safe:animate-pulse" />
+          ) : (
+            <Loader2 className="size-3.5 shrink-0 text-primary motion-safe:animate-spin" />
+          )}
+          <span className={cn("line-clamp-1", rateLimitWait && "text-warning-foreground")}>{latest}</span>
           <span className="shrink-0 tabular-nums text-muted-foreground/70">{elapsedLabel}</span>
         </div>
       </div>
@@ -1249,10 +1283,20 @@ function AgenticThinking({
   return (
     <div className="w-full max-w-2xl py-2 text-sm" role="status" aria-live="polite" aria-atomic="false">
       <div className="flex items-start gap-3">
-        <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center text-primary">
-          <Loader2 className="size-4 motion-safe:animate-spin" />
+        <span className={cn(
+          "mt-0.5 flex size-6 shrink-0 items-center justify-center",
+          rateLimitWait ? "text-warning-foreground" : "text-primary"
+        )}>
+          {rateLimitWait ? (
+            <Clock3 className="size-4 motion-safe:animate-pulse" />
+          ) : (
+            <Loader2 className="size-4 motion-safe:animate-spin" />
+          )}
         </span>
-        <p className="min-w-0 flex-1 leading-6 text-foreground/85">{latest}</p>
+        <p className={cn(
+          "min-w-0 flex-1 leading-6",
+          rateLimitWait ? "text-warning-foreground" : "text-foreground/85"
+        )}>{latest}</p>
         <span className="shrink-0 pt-0.5 text-xs tabular-nums text-muted-foreground">
           {elapsedLabel}
         </span>
@@ -1442,6 +1486,7 @@ function payloadHasVisibleContent(payload: ChatResponsePayloadV1 | undefined): p
   return payload.recommendations.length > 0 ||
     payload.actions.length > 0 ||
     (payload.data?.records?.length ?? 0) > 0 ||
+    (payload.data?.catalog?.items?.length ?? 0) > 0 ||
     (payload.missing_information?.length ?? 0) > 0;
 }
 
@@ -1472,6 +1517,9 @@ function StructuredResponsePanel({ payload }: { payload: ChatResponsePayloadV1 |
   const documentRecords = payload.data.records.filter((record) =>
     record.type === "document_evidence" && typeof record.text === "string" && record.text.trim()
   );
+  const catalogItems = payload.data.catalog?.kind === "products"
+    ? payload.data.catalog.items
+    : [];
   const linkActions = payload.actions.filter((action) => isSafeDisplayUrl(action.url));
   const nextActions = payload.actions.filter((action) => !isSafeDisplayUrl(action.url));
 
@@ -1504,6 +1552,60 @@ function StructuredResponsePanel({ payload }: { payload: ChatResponsePayloadV1 |
             </div>
           ))}
         </div>
+      )}
+
+      {catalogItems.length > 0 && (
+        <section className="space-y-2.5" aria-label="Produits disponibles">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-medium text-foreground">Produits disponibles</p>
+            <Badge variant="outline" className="h-5 text-[10px]">{catalogItems.length}</Badge>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {catalogItems.map((item, index) => {
+              const image = item.images[0];
+              const content = (
+                <>
+                  <div className="relative aspect-[16/9] overflow-hidden bg-muted/55">
+                    {image ? (
+                      // Project catalog images can originate from an allowed external project domain.
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={image} alt={item.name} className="size-full object-cover" loading="lazy" />
+                    ) : (
+                      <div className="flex size-full items-center justify-center text-muted-foreground/70">
+                        <ImageOff className="size-5" aria-hidden="true" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-1.5 p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-medium leading-snug">{item.name}</p>
+                      {item.price && (
+                        <span className="shrink-0 text-xs font-semibold text-primary">
+                          {item.price}{item.currency ? ` ${item.currency}` : ""}
+                        </span>
+                      )}
+                    </div>
+                    {item.description && (
+                      <p className="text-xs leading-relaxed text-muted-foreground">{item.description}</p>
+                    )}
+                    {item.availability && (
+                      <Badge variant="outline" className="h-5 text-[10px]">{item.availability}</Badge>
+                    )}
+                  </div>
+                </>
+              );
+              return item.url ? (
+                <a key={`${item.name}-${index}`} href={item.url} target={item.url.startsWith("/") ? undefined : "_blank"} rel="noopener noreferrer" className="overflow-hidden rounded-xl border border-primary/15 bg-background/55 transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  {content}
+                </a>
+              ) : (
+                <div key={`${item.name}-${index}`} className="overflow-hidden rounded-xl border border-primary/15 bg-background/55">
+                  {content}
+                </div>
+              );
+            })}
+          </div>
+        </section>
       )}
 
       {(linkActions.length > 0 || nextActions.length > 0) && (
