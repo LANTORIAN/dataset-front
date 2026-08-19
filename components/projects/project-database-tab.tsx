@@ -146,6 +146,7 @@ export function ProjectDatabaseTab({ projectId }: Props) {
   const [showSshAdvanced, setShowSshAdvanced] = useState(false);
 
   const load = async () => {
+    setTestResult(null);
     setLoading(true);
     const result = await projectDatabaseService.get(projectId);
     if (result.ok) {
@@ -255,6 +256,7 @@ export function ProjectDatabaseTab({ projectId }: Props) {
     setSaving(true);
     const result = await projectDatabaseService.upsert(projectId, payload);
     if (result.ok) {
+      setTestResult(null);
       setExisting(result.data);
       setForm(toForm(result.data));
     }
@@ -264,10 +266,10 @@ export function ProjectDatabaseTab({ projectId }: Props) {
   const handleTest = async () => {
     setTesting(true);
     setTestResult(null);
-    const result = await projectDatabaseService.test(projectId, payload);
+    const result = await projectDatabaseService.test(projectId);
+    await load();
     if (result.ok) {
       setTestResult(result.data);
-      await load();
     }
     setTesting(false);
   };
@@ -710,7 +712,10 @@ export function ProjectDatabaseTab({ projectId }: Props) {
           {existing && (
             <div className="text-xs text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
               <span>
-                Dernier test: {existing.last_tested_at ? new Date(existing.last_tested_at).toLocaleString() : "jamais"}
+                Dernier test enregistre:{" "}
+                {existing.last_tested_at
+                  ? new Date(existing.last_tested_at).toLocaleString()
+                  : "jamais"}
               </span>
               {existing.last_test_success != null && (
                 <span className="inline-flex items-center gap-1">
@@ -719,7 +724,14 @@ export function ProjectDatabaseTab({ projectId }: Props) {
                   ) : (
                     <XCircle className="size-3 text-destructive" />
                   )}
-                  {existing.last_test_success ? "succes" : "echec"}
+                  {existing.last_test_success
+                    ? "dernier test reussi"
+                    : "dernier test en echec"}
+                </span>
+              )}
+              {existing.last_test_success === false && existing.last_test_error && (
+                <span className="basis-full text-destructive">
+                  {existing.last_test_error}
                 </span>
               )}
             </div>
@@ -753,8 +765,12 @@ export function ProjectDatabaseTab({ projectId }: Props) {
               onClick={handleTest}
               disabled={testing || saving || !existing || !form.consent_share_data}
             >
-              {testing ? <Loader2 className="size-4 animate-spin" /> : <TestTube2 className="size-4" />}
-              Tester la connexion
+              {testing ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <TestTube2 className="size-4" />
+              )}
+              Tester la connexion enregistree
             </Button>
 
             <Button className="gap-2" onClick={handleSave} disabled={saving}>
