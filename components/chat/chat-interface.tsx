@@ -1522,22 +1522,31 @@ function StructuredResponsePanel({ payload }: { payload: ChatResponsePayloadV1 |
     : [];
   const linkActions = payload.actions.filter((action) => isSafeDisplayUrl(action.url));
   const nextActions = payload.actions.filter((action) => !isSafeDisplayUrl(action.url));
+  const panelTitle = payload.recommendations.length > 0
+    ? "Offres pertinentes"
+    : catalogItems.length > 0
+      ? "Produits disponibles"
+      : databaseRecords.length > 0 || documentRecords.length > 0
+        ? "Sources consultées"
+        : "Actions utiles";
 
   return (
     <div className="mt-3 space-y-3 border-t border-border/50 pt-3">
       <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-foreground">
         <span className="inline-flex items-center gap-1.5">
-          <ShoppingBag className="size-3.5 text-primary" /> Marketplace
+          <ShoppingBag className="size-3.5 text-primary" /> {panelTitle}
         </span>
-        {payload.source_category && (
-          <Badge variant="outline" className="h-5 text-[10px]">{payload.source_category}</Badge>
-        )}
       </div>
 
       {payload.recommendations.length > 0 && (
         <div className="grid gap-2 sm:grid-cols-2">
           {payload.recommendations.slice(0, 4).map((recommendation, index) => {
             const image = recommendation.image_url;
+            const priorityLabel = recommendation.priority === "primary"
+              ? "Le plus proche"
+              : recommendation.priority === "blocked"
+                ? "À vérifier"
+                : "À considérer";
             return (
               <div
                 key={recommendation.id ?? `${recommendation.label}-${index}`}
@@ -1563,7 +1572,7 @@ function StructuredResponsePanel({ payload }: { payload: ChatResponsePayloadV1 |
                         variant={recommendation.priority === "primary" ? "default" : "outline"}
                         className="h-5 shrink-0 text-[10px]"
                       >
-                        {recommendation.priority === "primary" ? "Recommandé" : "Option"}
+                        {priorityLabel}
                       </Badge>
                     )}
                   </div>

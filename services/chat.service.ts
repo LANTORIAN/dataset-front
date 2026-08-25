@@ -487,7 +487,18 @@ export function parseChatResponsePayloadV1(
     }];
   });
   const missing = Array.isArray(value.missing_information)
-    ? value.missing_information.filter((item): item is string => typeof item === "string" && !!item.trim())
+    ? value.missing_information
+      .filter((item): item is string => typeof item === "string" && !!item.trim())
+      .map((item) => item.trim())
+      .filter((item) => {
+        const lowered = item.toLowerCase();
+        return ![
+          "activation conditions must be confirmed",
+          "availability is not established from current evidence for:",
+          "missing dependencies -",
+          "prerequisite to confirm -",
+        ].some((marker) => lowered.includes(marker));
+      })
     : undefined;
   return {
     schema_version: "chat_response_payload.v1",
@@ -500,7 +511,7 @@ export function parseChatResponsePayloadV1(
     },
     recommendations,
     actions,
-    missing_information: missing,
+    missing_information: missing?.length ? missing : undefined,
   };
 }
 
