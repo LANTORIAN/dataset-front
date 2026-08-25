@@ -400,6 +400,8 @@ export interface ChatResponseRecommendationV1 {
   id?: string;
   label: string;
   image_url?: string;
+  price?: string;
+  currency?: string;
   priority?: string;
   reason?: string;
   compatible_with?: string[];

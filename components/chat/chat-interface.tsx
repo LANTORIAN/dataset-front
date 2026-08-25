@@ -1567,6 +1567,12 @@ function StructuredResponsePanel({ payload }: { payload: ChatResponsePayloadV1 |
                       </Badge>
                     )}
                   </div>
+                  {recommendation.price && (
+                    <p className="mt-1 text-xs font-medium text-primary">
+                      Prix : {recommendation.price}
+                      {recommendation.currency ? ` ${recommendation.currency}` : ""}
+                    </p>
+                  )}
                   {recommendation.reason && (
                     <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{recommendation.reason}</p>
                   )}
