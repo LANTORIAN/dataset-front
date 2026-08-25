@@ -399,6 +399,7 @@ export interface ChatResponseCatalogV1 {
 export interface ChatResponseRecommendationV1 {
   id?: string;
   label: string;
+  image_url?: string;
   priority?: string;
   reason?: string;
   compatible_with?: string[];
