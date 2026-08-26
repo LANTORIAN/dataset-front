@@ -133,7 +133,7 @@ const AGENTIC_CAPABILITIES = [
   { label: "SQL / DB", description: "preuves structurées", icon: Database },
   { label: "Knowledge APIs", description: "sources externes", icon: Globe2 },
   { label: "Planner", description: "orchestration", icon: GitBranch },
-  { label: "Marketplace", description: "actions recommandées", icon: ShoppingBag },
+  { label: "Offres projet", description: "actions recommandées", icon: ShoppingBag },
 ];
 
 const STEP_ICONS: Record<string, typeof BrainCircuit> = {
@@ -1014,7 +1014,7 @@ function moduleLabel(moduleId: string): string {
     tfidf_fallback: "Recherche lexicale",
     database_search: "Base SQL",
     external_knowledge: "Knowledge API",
-    marketplace_planner: "Marketplace",
+    marketplace_planner: "Offres projet",
   };
   return labels[moduleId] ?? moduleId.replace(/_/g, " ");
 }
@@ -1065,6 +1065,18 @@ function formatReasonCode(reason: string | undefined): string | null {
   return value.replace(/_/g, " ");
 }
 
+function sourceTypeLabel(source: string | undefined): string | null {
+  if (!source) return null;
+  const labels: Record<string, string> = {
+    project_data: "données projet",
+    project_documents: "documents projet",
+    deterministic_catalog: "offres projet",
+    deterministic_recovery: "vérification projet",
+    marketplace: "offres projet",
+  };
+  return labels[source] ?? source.replace(/_/g, " ");
+}
+
 function buildRecoveryMeta(message: UiMessage): RecoveryMetadata | null {
   if (!message.recovery_used) return null;
   return {
@@ -1083,6 +1095,7 @@ function AgenticTelemetry({ message }: { message: UiMessage }) {
   const nlu = message.nlu;
   const recovery = buildRecoveryMeta(message);
   const recoveryReason = formatReasonCode(recovery?.reason);
+  const sourceLabel = sourceTypeLabel(message.source_type);
   const hasTelemetry =
     modules.length > 0 ||
     results.length > 0 ||
@@ -1103,8 +1116,8 @@ function AgenticTelemetry({ message }: { message: UiMessage }) {
         {message.planned_intent && (
           <Badge variant="outline" className="h-5 text-[10px]">intent {message.planned_intent}</Badge>
         )}
-        {message.source_type && (
-          <Badge variant="secondary" className="h-5 text-[10px]">source {message.source_type}</Badge>
+        {sourceLabel && (
+          <Badge variant="secondary" className="h-5 text-[10px]">source {sourceLabel}</Badge>
         )}
         {nlu?.route_hint && (
           <Badge variant="outline" className="h-5 text-[10px]">NLU {nlu.route_hint}</Badge>
@@ -1213,7 +1226,7 @@ function AgenticTelemetry({ message }: { message: UiMessage }) {
           )}
           {market && (
             <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/10 px-2.5 py-2 text-primary">
-              <ShoppingBag className="size-3.5" /> Marketplace activé : {market}
+              <ShoppingBag className="size-3.5" /> Offres projet détectées : {market}
             </div>
           )}
         </div>
@@ -1481,13 +1494,16 @@ function PublicResponsePanel({
   );
 }
 
-function payloadHasVisibleContent(payload: ChatResponsePayloadV1 | undefined): payload is ChatResponsePayloadV1 {
+function payloadHasVisibleContent(
+  payload: ChatResponsePayloadV1 | undefined,
+  showRawRecords = false
+): payload is ChatResponsePayloadV1 {
   if (!payload) return false;
   return payload.recommendations.length > 0 ||
     payload.actions.length > 0 ||
-    (payload.data?.records?.length ?? 0) > 0 ||
     (payload.data?.catalog?.items?.length ?? 0) > 0 ||
-    (payload.missing_information?.length ?? 0) > 0;
+    (payload.missing_information?.length ?? 0) > 0 ||
+    (showRawRecords && (payload.data?.records?.length ?? 0) > 0);
 }
 
 function displayCellValue(value: unknown): string {
@@ -1509,14 +1525,24 @@ function recordColumns(record: ChatResponseDataRecordV1): string[] {
   return Array.from(new Set([...explicit, ...fromRows])).slice(0, 5);
 }
 
-function StructuredResponsePanel({ payload }: { payload: ChatResponsePayloadV1 | undefined }) {
-  if (!payloadHasVisibleContent(payload)) return null;
-  const databaseRecords = payload.data.records.filter((record) =>
-    record.type === "database_rows" && Array.isArray(record.rows) && record.rows.length > 0
-  );
-  const documentRecords = payload.data.records.filter((record) =>
-    record.type === "document_evidence" && typeof record.text === "string" && record.text.trim()
-  );
+function StructuredResponsePanel({
+  payload,
+  showRawRecords = false,
+}: {
+  payload: ChatResponsePayloadV1 | undefined;
+  showRawRecords?: boolean;
+}) {
+  if (!payloadHasVisibleContent(payload, showRawRecords)) return null;
+  const databaseRecords = showRawRecords
+    ? payload.data.records.filter((record) =>
+      record.type === "database_rows" && Array.isArray(record.rows) && record.rows.length > 0
+    )
+    : [];
+  const documentRecords = showRawRecords
+    ? payload.data.records.filter((record) =>
+      record.type === "document_evidence" && typeof record.text === "string" && record.text.trim()
+    )
+    : [];
   const catalogItems = payload.data.catalog?.kind === "products"
     ? payload.data.catalog.items
     : [];
@@ -1724,7 +1750,7 @@ function StructuredResponsePanel({ payload }: { payload: ChatResponsePayloadV1 |
           {documentRecords.slice(0, 3).map((record, index) => (
             <div key={`${record.source ?? "doc"}-${index}`} className="rounded-lg border border-border/40 bg-background/35 px-3 py-2 text-xs text-muted-foreground">
               <div className="mb-1 flex items-center gap-1.5 font-medium text-foreground">
-                <FileSearch className="size-3.5 text-primary" /> Preuve documentaire
+                <FileSearch className="size-3.5 text-primary" /> Extrait consulté
               </div>
               <p className="leading-relaxed">{record.text}</p>
             </div>
@@ -1764,6 +1790,7 @@ function MessageBubble({
 
   const reasoningCount = message.trace_events?.filter((event) => event.kind === "reasoning").length ?? 0;
   const verifyCount = message.trace_events?.filter((event) => event.kind === "verify").length ?? 0;
+  const assistantSourceLabel = sourceTypeLabel(message.source_type);
 
   const handleThumbUp = () => {
     if (message.feedback) return;
@@ -1863,7 +1890,10 @@ function MessageBubble({
             />
           )}
           {!isUser && !message.public_response && (
-            <StructuredResponsePanel payload={message.response_payload} />
+            <StructuredResponsePanel
+              payload={message.response_payload}
+              showRawRecords={!displayContent.trim()}
+            />
           )}
           {message.streaming && message.content && (
             <span className="inline-block w-0.5 h-3.5 bg-current ml-0.5 animate-pulse align-middle" />
@@ -1929,9 +1959,9 @@ function MessageBubble({
         {/* Meta badges + feedback — assistant only, after streaming */}
         {!isUser && !message.streaming && (
           <div className="flex flex-wrap items-center gap-1 px-1">
-            {isAdmin && message.source_type && (
+            {isAdmin && assistantSourceLabel && (
               <Badge variant="outline" className="text-xs h-4 gap-1">
-                <MindLogo className="size-3" />{message.source_type}
+                <MindLogo className="size-3" />{assistantSourceLabel}
               </Badge>
             )}
             {isAdmin && message.planned_intent && (
