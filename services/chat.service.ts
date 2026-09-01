@@ -456,6 +456,11 @@ export function parseChatResponsePayloadV1(
     return [{
       id: typeof item.id === "string" ? item.id : undefined,
       label,
+      image_url: typeof item.image_url === "string" && isSafePublicUrl(item.image_url)
+        ? item.image_url
+        : undefined,
+      price: typeof item.price === "string" ? item.price : undefined,
+      currency: typeof item.currency === "string" ? item.currency : undefined,
       priority: typeof item.priority === "string" ? item.priority : undefined,
       reason: typeof item.reason === "string" ? item.reason : undefined,
       compatible_with: Array.isArray(item.compatible_with)

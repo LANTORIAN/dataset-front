@@ -1536,21 +1536,50 @@ function StructuredResponsePanel({ payload }: { payload: ChatResponsePayloadV1 |
 
       {payload.recommendations.length > 0 && (
         <div className="grid gap-2 sm:grid-cols-2">
-          {payload.recommendations.slice(0, 4).map((recommendation, index) => (
-            <div key={recommendation.id ?? `${recommendation.label}-${index}`} className="rounded-xl border border-primary/15 bg-background/55 p-3">
-              <div className="flex items-start justify-between gap-2">
-                <p className="font-medium leading-snug">{recommendation.label}</p>
-                {recommendation.priority && (
-                  <Badge variant={recommendation.priority === "primary" ? "default" : "outline"} className="h-5 shrink-0 text-[10px]">
-                    {recommendation.priority === "primary" ? "Recommandé" : "Option"}
-                  </Badge>
+          {payload.recommendations.slice(0, 4).map((recommendation, index) => {
+            const image = recommendation.image_url;
+            return (
+              <div
+                key={recommendation.id ?? `${recommendation.label}-${index}`}
+                className="overflow-hidden rounded-xl border border-primary/15 bg-background/55"
+              >
+                {image && (
+                  <div className="relative aspect-[16/9] overflow-hidden bg-muted/55">
+                    {/* Project recommendation images are pre-filtered by the backend public contract. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={image}
+                      alt={recommendation.label}
+                      className="size-full object-cover"
+                      loading="lazy"
+                    />
+                  </div>
                 )}
+                <div className="p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-medium leading-snug">{recommendation.label}</p>
+                    {recommendation.priority && (
+                      <Badge
+                        variant={recommendation.priority === "primary" ? "default" : "outline"}
+                        className="h-5 shrink-0 text-[10px]"
+                      >
+                        {recommendation.priority === "primary" ? "Recommandé" : "Option"}
+                      </Badge>
+                    )}
+                  </div>
+                  {recommendation.price && (
+                    <p className="mt-1 text-xs font-medium text-primary">
+                      Prix : {recommendation.price}
+                      {recommendation.currency ? ` ${recommendation.currency}` : ""}
+                    </p>
+                  )}
+                  {recommendation.reason && (
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{recommendation.reason}</p>
+                  )}
+                </div>
               </div>
-              {recommendation.reason && (
-                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{recommendation.reason}</p>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
