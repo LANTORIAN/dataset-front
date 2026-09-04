@@ -56,7 +56,7 @@ export function ProjectsPage() {
   const debouncedSearch = useDebounce(search, 400);
 
   // Reset to page 1 when filters/search change (not when page or refreshKey change)
-  useEffect(() => { setPage(1); }, [debouncedSearch, sortBy, order]); // eslint-disable-line react-hooks/set-state-in-effect
+  useEffect(() => { setPage(1); }, [debouncedSearch, sortBy, order, statusFilter]); // eslint-disable-line react-hooks/set-state-in-effect
 
   // Single load effect
   useEffect(() => {
@@ -92,10 +92,11 @@ export function ProjectsPage() {
   const toggleOrder = () => setOrder((o) => o === "asc" ? "desc" : "asc");
 
   return (
-    <div className="space-y-7">
+    <div className="projects-page space-y-7">
       {/* Header */}
-      <div className="flex flex-col items-center gap-4 text-center md:flex-row md:justify-between md:text-left">
+      <div className="workspace-page-head flex flex-col items-center gap-4 text-center md:flex-row md:justify-between md:text-left">
         <div className="space-y-1">
+          <span className="workspace-page-head__eyebrow">Espace datasets</span>
           <h2 className="text-2xl font-bold tracking-tight">Projets</h2>
           <p className="text-muted-foreground text-sm mt-1">
             {total > 0 ? `${total} projet${total > 1 ? "s" : ""}` : "Gérez vos datasets et leurs fichiers."}
@@ -105,7 +106,7 @@ export function ProjectsPage() {
       </div>
 
       {/* Toolbar */}
-      <Card className="mx-auto w-full max-w-5xl">
+      <Card className="workspace-card workspace-toolbar mx-auto w-full max-w-5xl">
       <CardContent className="pt-6">
       <div className="flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
@@ -163,7 +164,7 @@ export function ProjectsPage() {
       {loading ? (
         <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i} className="animate-pulse">
+            <Card key={i} className="workspace-card animate-pulse">
               <CardHeader>
                 <div className="h-4 bg-muted rounded w-1/2" />
                 <div className="h-3 bg-muted rounded w-3/4 mt-2" />
@@ -173,7 +174,7 @@ export function ProjectsPage() {
           ))}
         </div>
       ) : visibleProjects.length === 0 ? (
-        <Card className="flex flex-col items-center justify-center py-16 animate-fade-in">
+        <Card className="workspace-empty flex flex-col items-center justify-center py-16 animate-fade-in">
           <div className="rounded-full bg-muted p-3 mb-4">
             <FolderOpen className="size-6 text-muted-foreground" />
           </div>
@@ -194,7 +195,7 @@ export function ProjectsPage() {
       ) : (
         <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           {visibleProjects.map((project, i) => (
-            <Card key={project.id} className={`group transition-all hover:-translate-y-0.5 hover:shadow-lg animate-fade-in-up stagger-${Math.min(i + 1, 6)}`}>
+            <Card key={project.id} className={`workspace-project-card group transition-all hover:-translate-y-0.5 hover:shadow-lg animate-fade-in-up stagger-${Math.min(i + 1, 6)}`}>
               <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <FolderOpen className="size-4 text-primary shrink-0" />

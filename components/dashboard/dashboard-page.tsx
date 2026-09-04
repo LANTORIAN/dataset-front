@@ -64,20 +64,21 @@ export function DashboardPage() {
   ];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Bienvenue</h2>
+    <div className="dashboard-page space-y-7">
+      <div className="dashboard-intro">
+        <span className="dashboard-intro__eyebrow">Espace de contrôle · données & IA</span>
+        <h2 className="mt-2 font-bold tracking-tight">Bienvenue</h2>
         <p className="text-muted-foreground text-sm mt-1">
-          Gérez vos datasets et interagissez avec votre IA en temps réel.
+          Gérez vos datasets, observez le pipeline et interagissez avec votre IA en temps réel.
         </p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {STAT_CARDS.map((card, i) => (
-          <Card key={card.title} className={`hover:shadow-md transition-shadow animate-fade-in-up stagger-${i + 1}`}>
+          <Card key={card.title} className={`stat-card animate-fade-in-up stagger-${i + 1}`}>
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
               <CardTitle className="text-sm font-medium text-muted-foreground">{card.title}</CardTitle>
-              <div className={`rounded-md p-1.5 ${card.bg}`}>
+              <div className={`stat-card__icon rounded-xl p-2 ${card.bg}`}>
                 <card.icon className={`size-4 ${card.color}`} />
               </div>
             </CardHeader>
@@ -92,15 +93,15 @@ export function DashboardPage() {
         ))}
       </div>
 
-      <Card className="overflow-hidden border-primary/15 bg-gradient-to-br from-background via-muted/30 to-primary/10 animate-fade-in-up stagger-5">
+      <Card className="agentic-panel animate-fade-in-up stagger-5">
         <CardContent className="p-0">
           <div className="grid gap-0 lg:grid-cols-[1.2fr_1fr]">
-            <div className="space-y-4 p-6">
-              <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-                <Bot className="size-3.5" /> Agentique multi-module actif
+            <div className="agentic-panel__copy space-y-4 p-6 md:p-8">
+              <div className="agentic-panel__label">
+                <Bot className="size-3.5" /> Agentique multi-module
               </div>
               <div>
-                <h3 className="text-xl font-semibold tracking-tight">Une réponse, plusieurs moteurs coordonnés.</h3>
+                <h3 className="agentic-panel__title text-xl font-semibold tracking-tight">Une réponse, plusieurs moteurs coordonnés.</h3>
                 <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
                   Le backend peut router chaque demande vers les fichiers RAG, la base SQL en lecture seule,
                   les APIs de connaissance, la mémoire de suivi DB et les recommandations marketplace, puis afficher les preuves utilisées.
@@ -110,9 +111,9 @@ export function DashboardPage() {
                 <Link href="/chat"><MessageSquare className="size-4" /> Tester dans le chat</Link>
               </Button>
             </div>
-            <div className="grid grid-cols-2 gap-2 border-t border-border/60 bg-background/45 p-4 lg:border-l lg:border-t-0">
+            <div className="agentic-panel__modules grid grid-cols-2 gap-2 border-t p-4 lg:border-l lg:border-t-0">
               {AGENTIC_MODULES.map((item) => (
-                <div key={item.label} className="rounded-2xl border border-border bg-background/80 p-3 shadow-sm">
+                <div key={item.label} className="agentic-module rounded-xl border p-3">
                   <item.icon className="mb-2 size-4 text-primary" />
                   <p className="text-sm font-medium">{item.label}</p>
                   <p className="text-xs text-muted-foreground">{item.detail}</p>
@@ -124,7 +125,7 @@ export function DashboardPage() {
       </Card>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
+        <Card className="dashboard-list-card">
           <CardHeader>
             <CardTitle className="text-base">Projets récents</CardTitle>
             <CardDescription>Vos derniers datasets importés</CardDescription>
@@ -137,7 +138,7 @@ export function DashboardPage() {
             ) : (
               projects.slice(0, 5).map((p) => (
                 <Link key={p.id} href={`/projects/${p.id}`}
-                  className="flex items-center justify-between rounded-md p-2 hover:bg-accent transition-colors">
+                  className="dashboard-list-row flex items-center justify-between rounded-md p-2">
                   <div className="flex items-center gap-2">
                     <FolderOpen className="size-4 text-muted-foreground" />
                     <span className="text-sm font-medium">{p.name}</span>
@@ -157,19 +158,19 @@ export function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="dashboard-list-card">
           <CardHeader>
             <CardTitle className="text-base">Démarrage rapide</CardTitle>
             <CardDescription>Les actions les plus courantes</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            <Button asChild className="w-full justify-start gap-2" variant="outline">
+            <Button asChild className="quick-action w-full gap-2" variant="outline">
               <Link href="/projects"><FolderOpen className="size-4" />Créer un nouveau projet</Link>
             </Button>
-            <Button asChild className="w-full justify-start gap-2" variant="outline">
+            <Button asChild className="quick-action w-full gap-2" variant="outline">
               <Link href="/projects"><FileText className="size-4" />Importer des fichiers</Link>
             </Button>
-            <Button asChild className="w-full justify-start gap-2" variant="outline">
+            <Button asChild className="quick-action w-full gap-2" variant="outline">
               <Link href="/chat"><MessageSquare className="size-4" />Démarrer une conversation</Link>
             </Button>
           </CardContent>

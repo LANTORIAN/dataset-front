@@ -503,7 +503,7 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
 
   if (!project) {
     return (
-      <div className="flex flex-col items-center justify-center flex-1 gap-3 text-muted-foreground p-8">
+      <div className="chat-empty-state flex flex-1 flex-col items-center justify-center gap-3 p-8 text-muted-foreground">
         <MindLogo className="size-12" />
         <p className="font-medium">Sélectionnez un projet</p>
         <p className="text-sm text-center">
@@ -514,11 +514,11 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <ScrollArea ref={scrollRef} className="flex-1 p-4">
+    <div className="chat-interface flex h-full flex-col">
+      <ScrollArea ref={scrollRef} className="chat-messages flex-1 p-4">
         {messages.length === 0 ? (
           <div className="mx-auto flex h-full min-h-[32rem] max-w-4xl flex-col justify-center gap-6 px-2 py-8">
-            <div className="overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-background via-muted/35 to-primary/10 p-6 shadow-sm">
+            <div className="chat-empty-hero overflow-hidden rounded-3xl border p-6">
               <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
                 <div className="space-y-3">
                   <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
@@ -544,7 +544,7 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
 
               <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                 {AGENTIC_CAPABILITIES.map((item) => (
-                  <div key={item.label} className="rounded-2xl border border-border/70 bg-background/70 p-3 shadow-sm">
+                  <div key={item.label} className="chat-capability rounded-2xl border p-3">
                     <item.icon className="mb-2 size-4 text-primary" />
                     <p className="text-sm font-medium text-foreground">{item.label}</p>
                     <p className="text-xs text-muted-foreground">{item.description}</p>
@@ -554,13 +554,13 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
             </div>
 
             <div className="grid gap-2 text-sm text-muted-foreground md:grid-cols-3">
-              <button type="button" onClick={() => setInput("Combien avons-nous de conversations dans la base ?")} className="rounded-2xl border border-border bg-background p-3 text-left transition-colors hover:bg-accent">
+              <button type="button" onClick={() => setInput("Combien avons-nous de conversations dans la base ?")} className="chat-suggestion rounded-2xl border p-3 text-left transition-colors hover:bg-accent">
                 <Database className="mb-2 size-4 text-primary" /> Interroger la base projet
               </button>
-              <button type="button" onClick={() => setInput("Résume les fichiers indexés et propose les actions utiles.")} className="rounded-2xl border border-border bg-background p-3 text-left transition-colors hover:bg-accent">
+              <button type="button" onClick={() => setInput("Résume les fichiers indexés et propose les actions utiles.")} className="chat-suggestion rounded-2xl border p-3 text-left transition-colors hover:bg-accent">
                 <FileSearch className="mb-2 size-4 text-primary" /> Croiser documents et actions
               </button>
-              <button type="button" onClick={() => setInput("Analyse cette demande avec toutes les sources disponibles.")} className="rounded-2xl border border-border bg-background p-3 text-left transition-colors hover:bg-accent">
+              <button type="button" onClick={() => setInput("Analyse cette demande avec toutes les sources disponibles.")} className="chat-suggestion rounded-2xl border p-3 text-left transition-colors hover:bg-accent">
                 <GitBranch className="mb-2 size-4 text-primary" /> Voir l&apos;orchestration
               </button>
             </div>
@@ -586,9 +586,9 @@ export function ChatInterface({ project, apiKey, conversationId, onConversationC
       </ScrollArea>
 
       {/* Input */}
-      <div className="border-t border-border p-4">
+      <div className="chat-composer border-t p-4">
         <div className="max-w-3xl mx-auto">
-          <div className="relative flex items-end gap-2 rounded-xl border border-border bg-background shadow-sm p-3">
+          <div className="chat-composer__box relative flex items-end gap-2 rounded-xl border p-3">
             <textarea
               placeholder="Posez une question sur vos données…"
               value={input}

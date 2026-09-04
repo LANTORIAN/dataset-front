@@ -92,9 +92,9 @@ export function ChatPage() {
   };
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-8.5rem)] w-full max-w-7xl overflow-hidden rounded-2xl border border-border/70 bg-card/80 shadow-[0_14px_40px_rgba(2,12,27,0.08)]">
+    <div className="chat-frame mx-auto flex h-[calc(100vh-8.5rem)] w-full max-w-7xl overflow-hidden rounded-2xl border bg-card/80">
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex w-72 flex-col border-r border-border/70 bg-background/70 shrink-0">
+      <aside className="chat-history-panel hidden w-72 shrink-0 flex-col border-r md:flex">
         <ConversationsSidebar {...sidebarProps} />
       </aside>
 
@@ -113,7 +113,7 @@ export function ChatPage() {
       </div>
 
       {/* Chat area */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-background/55">
+      <div className="chat-main flex flex-1 flex-col overflow-hidden">
         <ChatInterface
           project={selectedProject}
           apiKey={resolvedApiKey}

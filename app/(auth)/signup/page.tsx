@@ -43,7 +43,7 @@ export default function SignupPage() {
 
   if (done) {
     return (
-      <Card className="w-full max-w-sm shadow-lg">
+      <Card className="auth-card w-full max-w-sm shadow-lg">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-2">
             <div className="rounded-xl bg-warning-surface p-3">
@@ -69,7 +69,7 @@ export default function SignupPage() {
   }
 
   return (
-    <Card className="w-full max-w-sm shadow-lg">
+    <Card className="auth-card w-full max-w-sm shadow-lg">
       <CardHeader className="space-y-1 text-center">
         <div className="flex justify-center mb-2">
           <div className="rounded-xl bg-primary/10 p-3">

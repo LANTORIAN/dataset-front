@@ -36,23 +36,30 @@ export function Header({ onToggleSidebar, title }: HeaderProps) {
     .slice(0, 2);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-border/70 bg-background/85 backdrop-blur-xl">
+    <header className="dashboard-header sticky top-0 z-30 border-b bg-background/85 backdrop-blur-xl">
       <div className="mx-auto flex h-14 w-full max-w-7xl items-center gap-4 px-3 md:px-6">
         <Button
           variant="ghost"
           size="icon"
           onClick={onToggleSidebar}
           className="size-8"
-          aria-label="Toggle sidebar"
+          aria-label="Afficher ou masquer la navigation"
         >
           <Menu className="size-4" />
         </Button>
 
         {title && (
-          <h1 className="text-sm font-semibold text-foreground truncate" title={title}>{title}</h1>
+          <div className="header-context min-w-0">
+            <span className="header-context__label hidden sm:inline">Espace de travail</span>
+            <span className="header-context__slash hidden sm:inline">/</span>
+            <h1 className="truncate text-sm font-semibold text-foreground" title={title}>{title}</h1>
+          </div>
         )}
 
         <div className="ml-auto flex items-center gap-1">
+        <span className="hidden rounded-full border border-primary/20 bg-primary/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-primary lg:inline-flex">
+          Agentic workspace
+        </span>
         {/* Theme toggle */}
         <Button
           variant="ghost"

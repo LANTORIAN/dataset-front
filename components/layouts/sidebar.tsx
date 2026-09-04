@@ -32,7 +32,7 @@ const BASE_NAV = [
     section: "DATASETS",
     items: [
       { title: "Projets",          href: "/projects",   icon: FolderOpen  },
-      { title: "Acces & cles", href: "/projects/access", icon: KeyRound },
+      { title: "Accès & clés", href: "/projects/access", icon: KeyRound },
       { title: "Base de connaissance FAQ", href: "/faq", icon: HelpCircle },
       { title: "Analytics",        href: "/analytics",  icon: BarChart2   },
     ],
@@ -112,21 +112,19 @@ export function Sidebar({ isOpen, onClose, isMobile }: SidebarProps) {
 
       <aside
         className={cn(
-          "flex flex-col border-r border-border bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-linear overflow-hidden",
+          "flex flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground overflow-hidden",
           isMobile
             ? "fixed inset-y-0 left-0 z-50 shadow-2xl"
             : "sticky top-0 h-screen",
           isOpen ? "w-64" : "w-0"
         )}
       >
-        <div className="flex h-full flex-col min-w-64">
+          <div className="flex h-full min-w-64 flex-col">
           {/* Header */}
-          <div className="flex h-14 items-center justify-between border-b border-sidebar-border px-4">
-            <Link href="/" className="flex items-center gap-2">
-              <MindLogo className="size-6 text-sidebar-primary" />
-              <span className="font-semibold text-sm tracking-tight">
-                DatasetAI
-              </span>
+          <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
+            <Link href="/" className="group flex items-center gap-2.5">
+              <MindLogo className="size-7 text-sidebar-primary transition-transform duration-200 group-hover:rotate-6" />
+              <span className="text-sm font-semibold tracking-tight">Dataset<span className="text-sidebar-primary">AI</span></span>
             </Link>
             {isMobile && (
               <Button
@@ -147,7 +145,7 @@ export function Sidebar({ isOpen, onClose, isMobile }: SidebarProps) {
               ...(isAdmin ? [{ section: "ADMIN", items: ADMIN_ITEMS }] : []),
             ].map((section) => (
               <div key={section.section} className="mb-6 last:mb-0">
-                <p className="mb-2 px-2 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/50">
+                  <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-[.16em] text-sidebar-foreground/45">
                   {section.section}
                 </p>
                 <nav>
@@ -158,9 +156,9 @@ export function Sidebar({ isOpen, onClose, isMobile }: SidebarProps) {
                           href={item.href}
                           onClick={() => isMobile && onClose()}
                           className={cn(
-                            "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                            "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
                             isActive(item.href)
-                              ? "bg-sidebar-primary/15 text-sidebar-primary border-l-2 border-sidebar-primary"
+                              ? "bg-sidebar-primary/12 text-sidebar-primary ring-1 ring-inset ring-sidebar-primary/25"
                               : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
                           )}
                         >
@@ -181,16 +179,16 @@ export function Sidebar({ isOpen, onClose, isMobile }: SidebarProps) {
               href="/support"
               onClick={() => isMobile && onClose()}
               className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                isActive("/support")
-                  ? "bg-sidebar-primary/15 text-sidebar-primary border-l-2 border-sidebar-primary"
-                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+                 "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                 isActive("/support")
+                   ? "bg-sidebar-primary/12 text-sidebar-primary ring-1 ring-inset ring-sidebar-primary/25"
+                   : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
               )}
             >
               <LifeBuoy className="size-4 shrink-0" />
               <span>Support</span>
             </Link>
-            <p className="px-2 text-xs text-sidebar-foreground/40">Dataset IA v1.0</p>
+             <p className="px-2 text-[10px] uppercase tracking-[.14em] text-sidebar-foreground/35">Workspace v1.0</p>
           </div>
         </div>
       </aside>
