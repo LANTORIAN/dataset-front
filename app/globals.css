@@ -519,6 +519,42 @@
 .auth-card { width: 100%; border-color: var(--border); box-shadow: 0 20px 55px var(--shadow-color); }
 .auth-card input { background: color-mix(in oklab, var(--background) 70%, var(--muted)); }
 
+.config-form { position: relative; }
+.config-section-card { border-color: var(--border); box-shadow: 0 10px 28px var(--shadow-color); }
+.config-usage-group { border-color: var(--border); background: color-mix(in oklab, var(--muted) 35%, transparent); }
+.config-provider { border-color: var(--border); background: color-mix(in oklab, var(--card) 72%, var(--muted)); }
+.config-provider__summary { min-height: 2.2rem; cursor: pointer; border-radius: .5rem; }
+.config-provider__summary:hover { color: var(--primary); }
+.config-provider__summary:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+.config-provider__details { animation: config-details-in 180ms ease-out; }
+.config-save-bar { position: sticky; bottom: 1rem; z-index: 20; padding: .75rem; border: 1px solid color-mix(in oklab, var(--primary) 20%, var(--border)); border-radius: 1rem; background: color-mix(in oklab, var(--card) 91%, transparent); box-shadow: 0 12px 30px var(--shadow-color); backdrop-filter: blur(14px); }
+
+@keyframes config-details-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.analytics-page-head { padding-bottom: 1.25rem; border-bottom: 1px solid var(--border); }
+.analytics-page-head h2 { margin-top: .45rem; font-size: clamp(1.8rem, 3vw, 2.35rem); letter-spacing: -.05em; }
+.analytics-page-head__eyebrow, .analytics-section-heading__eyebrow { color: var(--primary); font-size: 10px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
+.analytics-toolbar { border-color: var(--border); background: color-mix(in oklab, var(--card) 84%, var(--muted)); box-shadow: 0 5px 18px var(--shadow-color); }
+.analytics-section-heading, .analytics-quality-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-top: .5rem; }
+.analytics-section-heading h3, .analytics-quality-heading h3 { margin-top: .4rem; font-size: 1.05rem; font-weight: 650; letter-spacing: -.025em; }
+.analytics-section-heading__caption { padding-bottom: 2px; color: var(--muted-foreground); font-size: 11px; }
+.analytics-quality-heading { margin-top: .9rem; }
+.analytics-kpi { position: relative; min-height: 132px; overflow: hidden; border-color: var(--border); box-shadow: 0 9px 25px var(--shadow-color); transition: border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease; }
+.analytics-kpi::before { position: absolute; top: 0; left: 1.5rem; width: 2.4rem; height: 3px; border-radius: 0 0 4px 4px; background: var(--primary); content: ""; }
+.analytics-kpi:hover { border-color: color-mix(in oklab, var(--primary) 32%, var(--border)); box-shadow: 0 13px 30px var(--shadow-color); transform: translateY(-2px); }
+.analytics-kpi--secondary::before { background: var(--success); }
+.analytics-kpi--neutral::before { background: var(--muted-foreground); }
+.analytics-kpi--accent::before { background: var(--accent); }
+.analytics-kpi--danger::before { background: var(--destructive); }
+.analytics-kpi p.text-2xl { margin-top: .25rem; font-size: 1.9rem; letter-spacing: -.06em; }
+.analytics-panel, .analytics-table-card { border-color: var(--border); box-shadow: 0 9px 25px var(--shadow-color); }
+.analytics-panel { min-height: 100%; }
+.analytics-table-card { overflow: hidden; }
+.analytics-empty { color: var(--muted-foreground); }
+
 @media (max-width: 767px) {
   .auth-shell { display: block; padding: 12px; }
   .auth-content { min-height: calc(100vh - 24px); padding: 10px 0; }
@@ -528,6 +564,10 @@
   .dashboard-atmosphere { opacity: .45; }
   .agentic-panel__modules { border-top: 1px solid var(--border); }
   .chat-frame { height: calc(100vh - 7.25rem); min-height: 32rem; border-radius: 1rem; }
+  .config-save-bar { bottom: .5rem; }
+  .analytics-toolbar { width: 100%; }
+  .analytics-toolbar > button { flex: 1; }
+  .analytics-section-heading, .analytics-quality-heading { align-items: flex-start; flex-direction: column; }
 }
 
 /* ── Table scroll hint (gradient fade at edges) ──────────────────────── */

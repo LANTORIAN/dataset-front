@@ -6,11 +6,13 @@ import {
   ArrowUp,
   Bot,
   Building2,
+  ChevronDown,
   Cpu,
   Globe,
   Info,
   KeyRound,
   Link2,
+  MoreHorizontal,
   Plus,
   Save,
   TestTube2,
@@ -35,6 +37,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { projectLLMService } from "@/services/project-llm.service";
 import { projectsService } from "@/services/projects.service";
 import type {
@@ -263,6 +273,7 @@ export function ProjectConfigForm({ project, onSaved }: Props) {
   const [usesProjectLLM, setUsesProjectLLM] = useState(false);
   const [testingProvider, setTestingProvider] = useState<string | null>(null);
   const [testStatus, setTestStatus] = useState<Record<string, string>>({});
+  const [expandedProviders, setExpandedProviders] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -349,7 +360,9 @@ export function ProjectConfigForm({ project, onSaved }: Props) {
 
   const addProvider = (usage: ProjectLLMUsage, preset: "groq" | "gemini" | "ollama") => {
     const nextPriority = providersByUsage[usage].length + 1;
-    setLlmProviders((prev) => [...prev, createProvider(usage, nextPriority, preset)]);
+    const provider = createProvider(usage, nextPriority, preset);
+    setLlmProviders((prev) => [...prev, provider]);
+    setExpandedProviders((prev) => ({ ...prev, [`${usage}-${nextPriority}`]: true }));
   };
 
   const removeProvider = (target: EditableProvider) => {
@@ -402,8 +415,8 @@ export function ProjectConfigForm({ project, onSaved }: Props) {
   };
 
   return (
-    <div className="space-y-4">
-      <Card>
+    <div className="config-form space-y-5">
+      <Card className="config-section-card">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
             <Building2 className="size-4" />Projet
@@ -422,7 +435,7 @@ export function ProjectConfigForm({ project, onSaved }: Props) {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="config-section-card">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
             <Bot className="size-4" />Assistant IA
@@ -473,7 +486,7 @@ export function ProjectConfigForm({ project, onSaved }: Props) {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="config-section-card">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex flex-wrap items-center gap-2">
             <Link2 className="size-4" />Pages & actions
@@ -561,7 +574,7 @@ export function ProjectConfigForm({ project, onSaved }: Props) {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="config-section-card">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex flex-wrap items-center gap-2">
             <Cpu className="size-4" />Configuration LLM
@@ -581,61 +594,78 @@ export function ProjectConfigForm({ project, onSaved }: Props) {
             </div>
           ) : (
             USAGE_ORDER.map((usage) => (
-              <div key={usage} className="rounded-lg border p-3 space-y-3">
-                <div className="flex flex-wrap items-start gap-2">
-                  <div>
+              <div key={usage} className="config-usage-group rounded-xl border p-3 space-y-3">
+                <div className="flex flex-wrap items-start gap-3">
+                  <div className="min-w-0">
                     <div className="text-sm font-medium">{USAGE_LABELS[usage].title}</div>
                     <p className="text-xs text-muted-foreground">{USAGE_LABELS[usage].desc}</p>
                   </div>
-                  <div className="ml-auto flex flex-wrap gap-1.5">
-                    <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => addProvider(usage, "groq")}>
-                      <Plus className="size-3" />Groq
-                    </Button>
-                    {usage !== "vanna_sql" && (
-                      <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => addProvider(usage, "gemini")}>
-                        <Plus className="size-3" />Gemini
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button type="button" variant="outline" size="sm" className="ml-auto h-8 gap-1.5 text-xs">
+                        <Plus className="size-3.5" />Ajouter
                       </Button>
-                    )}
-                    <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => addProvider(usage, "ollama")}>
-                      <Plus className="size-3" />Ollama
-                    </Button>
-                  </div>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Ajouter un provider</DropdownMenuLabel>
+                      <DropdownMenuItem onSelect={() => addProvider(usage, "groq")}><Plus className="mr-2 size-3.5" />Groq</DropdownMenuItem>
+                      {usage !== "vanna_sql" && <DropdownMenuItem onSelect={() => addProvider(usage, "gemini")}><Plus className="mr-2 size-3.5" />Gemini</DropdownMenuItem>}
+                      <DropdownMenuItem onSelect={() => addProvider(usage, "ollama")}><Plus className="mr-2 size-3.5" />Ollama</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
 
                 {providersByUsage[usage].length === 0 ? (
-                  <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+                  <div className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">
                     Aucun provider projet. Le backend utilisera le fallback `.env`.
                   </div>
                 ) : (
                   <div className="space-y-2">
                     {providersByUsage[usage].map((provider, index) => {
                       const providerKey = provider.id ?? `${provider.usage}-${provider.priority}`;
+                      const isExpanded = expandedProviders[providerKey] ?? false;
                       return (
-                        <div key={providerKey} className="rounded-md border bg-muted/20 p-3 space-y-3">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Badge variant="outline">#{index + 1}</Badge>
-                            <Switch checked={provider.enabled} onCheckedChange={(checked) => updateProvider(provider, { enabled: checked })} />
-                            <span className="text-xs text-muted-foreground">{provider.enabled ? "Actif" : "Désactivé"}</span>
-                            {provider.has_api_key && !provider.clear_api_key && (
-                              <Badge variant="secondary" className="gap-1">
-                                <KeyRound className="size-3" />clé enregistrée
-                              </Badge>
-                            )}
-                            {provider.source && <Badge variant="outline">{provider.source}</Badge>}
-                            <div className="ml-auto flex gap-1">
-                              <Button type="button" variant="outline" size="icon" className="size-7" disabled={index === 0} onClick={() => moveProvider(provider, -1)}>
-                                <ArrowUp className="size-3" />
-                              </Button>
-                              <Button type="button" variant="outline" size="icon" className="size-7" disabled={index === providersByUsage[usage].length - 1} onClick={() => moveProvider(provider, 1)}>
-                                <ArrowDown className="size-3" />
-                              </Button>
-                              <Button type="button" variant="outline" size="icon" className="size-7 text-destructive" onClick={() => removeProvider(provider)}>
-                                <Trash2 className="size-3" />
-                              </Button>
-                            </div>
+                        <div key={providerKey} className="config-provider rounded-xl border bg-muted/20 p-3">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              className="config-provider__summary flex min-w-0 flex-1 items-center gap-2 text-left"
+                              onClick={() => setExpandedProviders((prev) => ({ ...prev, [providerKey]: !isExpanded }))}
+                              aria-expanded={isExpanded}
+                            >
+                              <Badge variant="outline" className="shrink-0">#{index + 1}</Badge>
+                              <span className="min-w-0">
+                                <span className="block truncate text-sm font-medium">{provider.name || PROVIDER_LABELS[provider.provider_type]}</span>
+                                <span className="block truncate text-[11px] text-muted-foreground">{PROVIDER_LABELS[provider.provider_type]} · {provider.model}</span>
+                              </span>
+                              <ChevronDown className={`ml-auto size-4 shrink-0 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                            </button>
+                            <Switch checked={provider.enabled} onCheckedChange={(checked) => updateProvider(provider, { enabled: checked })} aria-label={provider.enabled ? "Désactiver le provider" : "Activer le provider"} />
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button type="button" variant="ghost" size="icon" className="size-8 shrink-0" aria-label={`Actions pour ${provider.name || provider.model}`}>
+                                  <MoreHorizontal className="size-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Actions provider</DropdownMenuLabel>
+                                <DropdownMenuItem disabled={index === 0} onSelect={() => moveProvider(provider, -1)}><ArrowUp className="mr-2 size-3.5" />Monter la priorité</DropdownMenuItem>
+                                <DropdownMenuItem disabled={index === providersByUsage[usage].length - 1} onSelect={() => moveProvider(provider, 1)}><ArrowDown className="mr-2 size-3.5" />Descendre la priorité</DropdownMenuItem>
+                                <DropdownMenuItem disabled={testingProvider === providerKey} onSelect={() => testProvider(provider)}><TestTube2 className="mr-2 size-3.5" />{testingProvider === providerKey ? "Test en cours…" : "Tester le provider"}</DropdownMenuItem>
+                                {provider.has_api_key && provider.provider_type !== "ollama" && (
+                                  <DropdownMenuItem onSelect={() => updateProvider(provider, { clear_api_key: true, api_key: "" })}><KeyRound className="mr-2 size-3.5" />Supprimer la clé enregistrée</DropdownMenuItem>
+                                )}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => removeProvider(provider)}><Trash2 className="mr-2 size-3.5" />Supprimer le provider</DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
+                          {provider.has_api_key && !provider.clear_api_key && (
+                            <Badge variant="secondary" className="ml-9 mt-2 gap-1 text-[10px]"><KeyRound className="size-3" />Clé enregistrée</Badge>
+                          )}
+                          {testStatus[providerKey] && <p className="ml-9 mt-2 text-xs text-muted-foreground">{testStatus[providerKey]}</p>}
 
-                          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                          {isExpanded && <div className="config-provider__details mt-3 grid gap-3 border-t border-border/60 pt-3 md:grid-cols-2 xl:grid-cols-4">
                             <div className="space-y-1.5">
                               <Label className="text-xs">Nom</Label>
                               <Input value={provider.name} onChange={(e) => updateProvider(provider, { name: e.target.value })} className="h-8 text-xs" />
@@ -701,21 +731,7 @@ export function ProjectConfigForm({ project, onSaved }: Props) {
                               <Label className="text-xs">USD / M tokens sortie</Label>
                               <Input type="number" min={0} step={0.000001} value={provider.output_cost_per_million_usd ?? ""} onChange={(e) => updateProvider(provider, { output_cost_per_million_usd: e.target.value === "" ? null : Number(e.target.value) })} className="h-8 text-xs" placeholder="0" />
                             </div>
-                          </div>
-
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Button type="button" variant="outline" size="sm" className="h-7 gap-1 text-xs" disabled={testingProvider === providerKey} onClick={() => testProvider(provider)}>
-                              <TestTube2 className="size-3" />{testingProvider === providerKey ? "Test…" : "Tester"}
-                            </Button>
-                            {provider.has_api_key && provider.provider_type !== "ollama" && (
-                              <Button type="button" variant="ghost" size="sm" className="h-7 text-xs text-destructive" onClick={() => updateProvider(provider, { clear_api_key: true, api_key: "" })}>
-                                Supprimer la clé enregistrée
-                              </Button>
-                            )}
-                            {testStatus[providerKey] && (
-                              <span className="text-xs text-muted-foreground">{testStatus[providerKey]}</span>
-                            )}
-                          </div>
+                          </div>}
                         </div>
                       );
                     })}
@@ -734,7 +750,7 @@ export function ProjectConfigForm({ project, onSaved }: Props) {
         </CardContent>
       </Card>
 
-      <Card className="border-dashed">
+      <Card className="config-section-card border-dashed">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
             <Globe className="size-4" />Sources de connaissance
@@ -765,7 +781,7 @@ export function ProjectConfigForm({ project, onSaved }: Props) {
         </CardContent>
       </Card>
 
-      <div className="flex justify-end">
+      <div className="config-save-bar flex justify-end">
         <Button onClick={handleSave} disabled={saving} className="gap-2">
           <Save className="size-4" />
           {saving ? "Enregistrement…" : "Enregistrer le projet"}

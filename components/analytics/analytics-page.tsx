@@ -109,18 +109,19 @@ export function AnalyticsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="analytics-page space-y-7">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="analytics-page-head flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
+          <span className="analytics-page-head__eyebrow">Observatoire agentique · qualité & usage</span>
           <h2 className="text-2xl font-bold tracking-tight">Analytics & Support</h2>
           <p className="text-sm text-muted-foreground">
             Performance et satisfaction de votre assistant IA
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="analytics-toolbar flex flex-wrap items-center gap-2 rounded-xl border p-2">
           <Select value={projectId} onValueChange={setProjectId}>
-            <SelectTrigger className="h-8 w-48 text-xs">
+            <SelectTrigger className="h-9 w-48 border-0 bg-transparent text-xs shadow-none">
               <SelectValue placeholder="Choisir un projet…" />
             </SelectTrigger>
             <SelectContent>
@@ -130,7 +131,7 @@ export function AnalyticsPage() {
             </SelectContent>
           </Select>
           <Select value={days} onValueChange={setDays}>
-            <SelectTrigger className="h-8 w-44 text-xs">
+            <SelectTrigger className="h-9 w-44 border-0 bg-transparent text-xs shadow-none">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -139,28 +140,38 @@ export function AnalyticsPage() {
               ))}
             </SelectContent>
           </Select>
-          <Button variant="outline" size="icon" className="size-8" onClick={load} disabled={loading}>
+          <Button variant="outline" size="sm" className="gap-2" onClick={load} disabled={loading} title="Actualiser les données">
             <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
+            <span className="hidden lg:inline">Actualiser</span>
           </Button>
-          <Button variant="outline" size="icon" className="size-8" onClick={handleExport} disabled={!projectId}>
+          <Button variant="outline" size="sm" className="gap-2" onClick={handleExport} disabled={!projectId} title="Exporter en CSV">
             <Download className="size-3.5" />
+            <span className="hidden lg:inline">Exporter</span>
           </Button>
         </div>
       </div>
 
       {loading && !overview ? (
-        <div className="flex items-center justify-center py-24">
+        <div className="analytics-empty flex items-center justify-center py-24">
           <Loader2 className="size-6 animate-spin text-muted-foreground" />
         </div>
       ) : !projectId ? (
-        <div className="text-center py-24 text-muted-foreground text-sm">
+        <div className="analytics-empty py-24 text-center text-sm text-muted-foreground">
           Sélectionnez un projet pour afficher les analytics.
         </div>
       ) : (
         <>
+          <div className="analytics-section-heading">
+            <div>
+              <span className="analytics-section-heading__eyebrow">Vue d&apos;ensemble</span>
+              <h3>Le signal en un coup d&apos;œil</h3>
+            </div>
+            <span className="analytics-section-heading__caption">Période : {days} jours</span>
+          </div>
+
           {/* KPI cards */}
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <Card>
+            <Card className="analytics-kpi analytics-kpi--primary">
               <CardHeader className="pb-1">
                 <CardDescription className="text-xs flex items-center gap-1.5">
                   <MessageSquare className="size-3.5" />Conversations
@@ -170,7 +181,7 @@ export function AnalyticsPage() {
                 <p className="text-2xl font-bold">{overview?.total_conversations ?? "—"}</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="analytics-kpi analytics-kpi--secondary">
               <CardHeader className="pb-1">
                 <CardDescription className="text-xs flex items-center gap-1.5">
                   <Zap className="size-3.5" />Messages
@@ -180,7 +191,7 @@ export function AnalyticsPage() {
                 <p className="text-2xl font-bold">{overview?.total_messages ?? "—"}</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="analytics-kpi analytics-kpi--neutral">
               <CardHeader className="pb-1">
                 <CardDescription className="text-xs flex items-center gap-1.5">
                   <Clock className="size-3.5" />Tps de réponse moy.
@@ -192,7 +203,7 @@ export function AnalyticsPage() {
                 </p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="analytics-kpi analytics-kpi--accent">
               <CardHeader className="pb-1">
                 <CardDescription className="text-xs flex items-center gap-1.5">
                   <ThumbsUp className="size-3.5" />Satisfaction
@@ -214,8 +225,14 @@ export function AnalyticsPage() {
             </Card>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
-            <Card className="border-destructive/30 bg-destructive/5">
+          <div className="analytics-quality-heading">
+            <div>
+              <span className="analytics-section-heading__eyebrow">Qualité opérationnelle</span>
+              <h3>Ce qui mérite votre attention</h3>
+            </div>
+          </div>
+          <div className="analytics-quality-grid grid grid-cols-2 gap-4 sm:grid-cols-5">
+            <Card className="analytics-kpi analytics-kpi--danger">
               <CardHeader className="pb-1">
                 <CardDescription className="text-xs flex items-center gap-1.5">
                   <Bug className="size-3.5" />Non résolus
@@ -228,7 +245,7 @@ export function AnalyticsPage() {
                 </p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="analytics-kpi analytics-kpi--neutral">
               <CardHeader className="pb-1">
                 <CardDescription className="text-xs flex items-center gap-1.5">
                   <AlertTriangle className="size-3.5" />Sans réponse
@@ -238,7 +255,7 @@ export function AnalyticsPage() {
                 <p className="text-2xl font-bold">{issues?.unanswered_messages ?? "—"}</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="analytics-kpi analytics-kpi--neutral">
               <CardHeader className="pb-1">
                 <CardDescription className="text-xs flex items-center gap-1.5">
                   <HelpCircle className="size-3.5" />Incertaines
@@ -248,7 +265,7 @@ export function AnalyticsPage() {
                 <p className="text-2xl font-bold">{issues?.uncertain_responses ?? "—"}</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="analytics-kpi analytics-kpi--danger">
               <CardHeader className="pb-1">
                 <CardDescription className="text-xs flex items-center gap-1.5">
                   <ThumbsUp className="size-3.5" />Feedbacks négatifs
@@ -258,7 +275,7 @@ export function AnalyticsPage() {
                 <p className="text-2xl font-bold">{issues?.negative_feedbacks ?? "—"}</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="analytics-kpi analytics-kpi--neutral">
               <CardHeader className="pb-1">
                 <CardDescription className="text-xs flex items-center gap-1.5">
                   <Clock className="size-3.5" />P95 latence
@@ -272,10 +289,10 @@ export function AnalyticsPage() {
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="analytics-detail-grid grid grid-cols-1 gap-4 lg:grid-cols-2">
             {/* Satisfaction detail */}
             {satisfaction && (
-              <Card>
+              <Card className="analytics-panel">
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
                     <ThumbsUp className="size-4" />Feedbacks
@@ -325,7 +342,7 @@ export function AnalyticsPage() {
             )}
 
             {issues && (
-              <Card>
+              <Card className="analytics-panel">
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
                     <Bug className="size-4" />Diagnostic conversations
@@ -359,7 +376,7 @@ export function AnalyticsPage() {
 
             {/* Overview extra stats */}
             {overview && (
-              <Card>
+              <Card className="analytics-panel">
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
                     <Zap className="size-4" />Utilisation
@@ -399,7 +416,7 @@ export function AnalyticsPage() {
           </div>
 
           {/* Top questions */}
-          <Card>
+          <Card className="analytics-table-card">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <HelpCircle className="size-4" />Questions fréquentes
@@ -408,7 +425,7 @@ export function AnalyticsPage() {
             </CardHeader>
             <CardContent className="p-0">
               {topQuestions.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">
+                <p className="analytics-empty py-8 text-center text-sm text-muted-foreground">
                   Aucune donnée disponible.
                 </p>
               ) : (
@@ -443,7 +460,7 @@ export function AnalyticsPage() {
           </Card>
 
           {/* Failed queries */}
-          <Card>
+          <Card className="analytics-table-card">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <AlertTriangle className="size-4 text-destructive" />Requêtes sans réponse
@@ -452,7 +469,7 @@ export function AnalyticsPage() {
             </CardHeader>
             <CardContent className="p-0">
               {failedQueries.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">
+                <p className="analytics-empty py-8 text-center text-sm text-muted-foreground">
                   Aucune requête échouée sur cette période.
                 </p>
               ) : (
