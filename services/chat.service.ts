@@ -438,6 +438,7 @@ export function parseChatResponsePayloadV1(
           if (!name) return [];
           return [{
             name,
+            slug: typeof item.slug === "string" && item.slug.trim() ? item.slug.trim() : undefined,
             images: Array.isArray(item.images)
               ? item.images.filter((image): image is string => typeof image === "string" && isSafePublicUrl(image)).slice(0, 6)
               : [],

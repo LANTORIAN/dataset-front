@@ -383,6 +383,7 @@ export interface ChatResponseDataRecordV1 {
 
 export interface ChatResponseCatalogItemV1 {
   name: string;
+  slug?: string;
   images: string[];
   description?: string;
   price?: string;
