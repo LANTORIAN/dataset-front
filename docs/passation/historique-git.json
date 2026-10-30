@@ -1,0 +1,398 @@
+{
+  "schema_version": "passation.git.v1",
+  "revision": "c4d8ddd",
+  "author_filter": "ylan (case-insensitive)",
+  "scope": "ancestors of the recorded revision, not every unrelated branch",
+  "commits": [
+    {
+      "hash": "bdb1ef24720f587a37a854dd6ef1b63662e753aa",
+      "date": "2026-03-25T11:52:22+03:00",
+      "author": "YlanDecode",
+      "subject": "Initial commit from Create Next App"
+    },
+    {
+      "hash": "da85497b27f2d6258d7689e79f34a5ba9d57459c",
+      "date": "2026-03-26T21:19:36+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: initial commit"
+    },
+    {
+      "hash": "d02eb05205efe9ad0450339d449674280239b7d2",
+      "date": "2026-03-27T18:07:30+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: admin SMTP settings, contact fields, debug badges admin-only, PM2 + nginx config"
+    },
+    {
+      "hash": "026e7ddb8d056914590ac3bc403b7f423f026fea",
+      "date": "2026-03-30T14:58:33+03:00",
+      "author": "YlanDecode",
+      "subject": "fix: new conversation"
+    },
+    {
+      "hash": "95d0e98a2fd85e0ae818e8a826460b024b4af574",
+      "date": "2026-04-03T19:28:09+03:00",
+      "author": "YlanDecode",
+      "subject": "fix: refresh token auto and handle CSV responses"
+    },
+    {
+      "hash": "4953e906acb7e1c558112b17fda6fc8530d946aa",
+      "date": "2026-04-03T20:11:49+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: add admin page controls for DB assistant visibility"
+    },
+    {
+      "hash": "7bc761cfc65f4d59957e6380fb89927299318d07",
+      "date": "2026-04-03T21:09:27+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: show live processing steps during chat streaming"
+    },
+    {
+      "hash": "592ba99af8882066deda12bb917c1238242a148d",
+      "date": "2026-04-03T21:29:57+03:00",
+      "author": "YlanDecode",
+      "subject": "fix: keep streaming messages visible until history sync"
+    },
+    {
+      "hash": "793e0b47b97463aa088409eafeae38261647bce6",
+      "date": "2026-04-03T21:54:29+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: display DB table answers with monospace formatting"
+    },
+    {
+      "hash": "ed91eb8b01c1d430718424eac75657f29bbd89b0",
+      "date": "2026-04-03T22:05:18+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: render assistant DB outputs as real table component"
+    },
+    {
+      "hash": "090cb7efdb3fb36bd5bc53caceb7b37c439fe13f",
+      "date": "2026-04-07T19:05:00+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: add dynamic public documentation and admin editor"
+    },
+    {
+      "hash": "2bdbbb531ff606f88b357defa342a4809f92f749",
+      "date": "2026-04-07T19:23:48+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: introduce custom mind brand icon across app"
+    },
+    {
+      "hash": "190d1258dd7585c7dbe27449ae9ebfd123ec131f",
+      "date": "2026-04-08T11:05:54+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: proxy documentation API and improve mobile UX"
+    },
+    {
+      "hash": "8e17b84f74aeec21bd63ece3d0c3ca5ce818fd6a",
+      "date": "2026-04-08T12:20:35+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: add project database tab and rgpd consent flow"
+    },
+    {
+      "hash": "758d9e89083d13e2056c096695c1b87b24415501",
+      "date": "2026-04-08T16:22:56+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: refine dashboard layout and setup onboarding UI"
+    },
+    {
+      "hash": "e99d620436f45d6fbf5fb0f87bb964ad6efc56ff",
+      "date": "2026-04-10T19:16:48+03:00",
+      "author": "YlanDecode",
+      "subject": "fix: redirect to login when session refresh fails"
+    },
+    {
+      "hash": "992800ecdd1b47cc159fe23fc423a6964f8af9cf",
+      "date": "2026-04-10T19:38:01+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: add project access page for keys and boilerplate"
+    },
+    {
+      "hash": "d2f484d27baf31740cde44871dc7deedbd153226",
+      "date": "2026-04-13T18:18:31+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: add ssh tunnel option in project database setup"
+    },
+    {
+      "hash": "a832ab2aa641c1389996cdf4129130aee5daa03b",
+      "date": "2026-04-14T17:58:54+03:00",
+      "author": "YlanDecode",
+      "subject": "refactor: clarify ssh setup labels in database tab"
+    },
+    {
+      "hash": "11ea342328b4babbe1596030633f183522762cb8",
+      "date": "2026-04-14T18:14:45+03:00",
+      "author": "YlanDecode",
+      "subject": "fix: send db credentials in ssh tunnel setup payload"
+    },
+    {
+      "hash": "c1e327fc0bf41b566c9378bcf8a3fe4915210de8",
+      "date": "2026-04-14T18:39:05+03:00",
+      "author": "YlanDecode",
+      "subject": "fix: test database config with current form values"
+    },
+    {
+      "hash": "856d91b72f5dcd20f1ac5615bc662708cdf33cb6",
+      "date": "2026-04-14T21:43:42+03:00",
+      "author": "YlanDecode",
+      "subject": "fix chat table rendering for flattened DB outputs"
+    },
+    {
+      "hash": "bcf51216ef008f01e3a99fb6a35c19e868bc16e0",
+      "date": "2026-04-14T22:01:23+03:00",
+      "author": "YlanDecode",
+      "subject": "feat parse structured DB table payloads in chat UI"
+    },
+    {
+      "hash": "ee71e7d948ab0153f86f9c27694b283e335c557e",
+      "date": "2026-04-14T22:19:21+03:00",
+      "author": "YlanDecode",
+      "subject": "fix chat rendering of db table markers"
+    },
+    {
+      "hash": "cde86dd58860b54ef78e844ce53800605b3b4c5a",
+      "date": "2026-06-24T21:00:24+03:00",
+      "author": "YlanDecode",
+      "subject": "feat sql agent admin and chat traces"
+    },
+    {
+      "hash": "02d9077d985fd263673f0b9bdf1327c7366ee1c6",
+      "date": "2026-06-24T21:47:49+03:00",
+      "author": "YlanDecode",
+      "subject": "fix auth timer typing for production build"
+    },
+    {
+      "hash": "a9a5cca7da9a1e6da7a147bc5586acf65c5f1b92",
+      "date": "2026-07-06T14:42:48+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: show agentic multi-module telemetry"
+    },
+    {
+      "hash": "1616f483e38728888888f028f3b6cb251d62b2c0",
+      "date": "2026-07-06T18:10:31+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: improve agentic thinking animation"
+    },
+    {
+      "hash": "2662c3c0f6f02f88ee0a0dc2b5c335bd259b6ddb",
+      "date": "2026-07-06T18:35:27+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: add premium agentic response panel"
+    },
+    {
+      "hash": "ac14ecf431099bde47e430cabfedf8ec9357f92f",
+      "date": "2026-07-06T18:48:43+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: compact agentic thinking trace"
+    },
+    {
+      "hash": "faeae108fa6ef9e595f18bd0a5131c6d4bf6fa2a",
+      "date": "2026-07-06T19:26:13+03:00",
+      "author": "YlanDecode",
+      "subject": "fix: show real agentic response time"
+    },
+    {
+      "hash": "7d030bc2ebd95eb736d20b856d529700efd9ad11",
+      "date": "2026-07-08T16:56:11+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: surface admin chat recovery telemetry"
+    },
+    {
+      "hash": "4c255412e5c595c1c98eb07b5c8b049a14d9aa20",
+      "date": "2026-07-08T17:51:20+03:00",
+      "author": "YlanDecode",
+      "subject": "fix: wait for project key before chat requests"
+    },
+    {
+      "hash": "900b8d1661b2838cbc02799f11fb55d80f120a45",
+      "date": "2026-07-14T15:58:10+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: add project LLM settings UI"
+    },
+    {
+      "hash": "a89f9e1cd3e7e6be52551d39cf75f42a26bd5aee",
+      "date": "2026-07-15T11:56:01+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: configure site actions"
+    },
+    {
+      "hash": "036648d94f0f552019b304917a9b1e303e47c22d",
+      "date": "2026-07-15T15:30:39+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: render chat actions as buttons"
+    },
+    {
+      "hash": "e46db3a96be66e1713482be151ad8feb98c6f873",
+      "date": "2026-07-16T10:54:34+03:00",
+      "author": "YlanDecode",
+      "subject": "fix: restrict chat action link extraction"
+    },
+    {
+      "hash": "8d79003163147aed5c69cb38bc21b3e13e1af2f7",
+      "date": "2026-07-17T14:14:14+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: show chat progress steps"
+    },
+    {
+      "hash": "5dd8d65911f6bebc666656c9bf5bc0118b436443",
+      "date": "2026-07-20T12:35:36+03:00",
+      "author": "YlanDecode",
+      "subject": "fix: reduce backend health polling"
+    },
+    {
+      "hash": "1709745a249cb44562e888fdc43661535e241840",
+      "date": "2026-07-20T12:36:10+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: add project RAG and cache controls"
+    },
+    {
+      "hash": "7e263ea80a6ea19fff3f542af2c1c548a96034aa",
+      "date": "2026-07-27T13:55:40+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: add agentic workflow management UI"
+    },
+    {
+      "hash": "9fa58ba509c6a8704678b67741483b8e064ffb8f",
+      "date": "2026-07-27T14:17:54+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: improve frontend design — animations, skeletons, a11y, empty states"
+    },
+    {
+      "hash": "7ca6b8c68b63983f7f9af6ce848996b333828196",
+      "date": "2026-07-27T17:02:39+03:00",
+      "author": "YlanDecode",
+      "subject": "Merge pull request #1 from LANTORIAN/feat/agentic-workflow-foundations"
+    },
+    {
+      "hash": "9d8cf93486a4b862304734ef3daca42fb75164f4",
+      "date": "2026-07-28T16:02:58+03:00",
+      "author": "YlanDecode",
+      "subject": "fix: hide internal agent telemetry"
+    },
+    {
+      "hash": "d6d95bdd98cf2f19649471ae94eff7cc24e083bb",
+      "date": "2026-07-28T19:44:10+03:00",
+      "author": "YlanDecode",
+      "subject": "refactor: simplify project configuration"
+    },
+    {
+      "hash": "1420380cdd9e1c83b96814cb8f581f7615da190b",
+      "date": "2026-07-28T19:52:32+03:00",
+      "author": "YlanDecode",
+      "subject": "fix: canary deps"
+    },
+    {
+      "hash": "dd45a0dd3145f5848e72de524791b5f82a20cac1",
+      "date": "2026-07-28T20:21:27+03:00",
+      "author": "YlanDecode",
+      "subject": "fix: v2 btn"
+    },
+    {
+      "hash": "0df548ccca6bba18e8f70010e3714d7202a27bed",
+      "date": "2026-07-29T14:35:57+03:00",
+      "author": "YlanDecode",
+      "subject": "refactor: use agentic v2 directly"
+    },
+    {
+      "hash": "72d092134ebd006c24e9c927b2fe342b1ee3dce2",
+      "date": "2026-07-29T16:30:43+03:00",
+      "author": "YlanDecode",
+      "subject": "refactor: remove workflow readiness dependency"
+    },
+    {
+      "hash": "bb3b7437f563199cb70b7161747d0b87619d0d84",
+      "date": "2026-07-29T17:55:33+03:00",
+      "author": "YlanDecode",
+      "subject": "fix: expose public v2 refusal reason"
+    },
+    {
+      "hash": "7d874962f3799d814824ade0b49df1d51b8d582f",
+      "date": "2026-07-29T20:29:22+03:00",
+      "author": "YlanDecode",
+      "subject": "fix: restore chat v2 fallback"
+    },
+    {
+      "hash": "ab9bf0869f38290bd4d428516b3d44c56472265b",
+      "date": "2026-07-30T10:51:16+03:00",
+      "author": "YlanDecode",
+      "subject": "fix: use legacy chat stream"
+    },
+    {
+      "hash": "7c7ea3575529c6f4bd50897e6b00243b1c573c0a",
+      "date": "2026-07-31T14:18:13+03:00",
+      "author": "YlanDecode",
+      "subject": "fix: render structured chat payloads"
+    },
+    {
+      "hash": "954a843a32bebacf18a5cdc168b733f5fece4f99",
+      "date": "2026-08-03T16:19:02+03:00",
+      "author": "YlanDecode",
+      "subject": "fix: show public db rows in chat"
+    },
+    {
+      "hash": "ea59f4f21ad5c57476c4b69db212592c60ea9106",
+      "date": "2026-08-03T18:43:45+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: show chat progress journal"
+    },
+    {
+      "hash": "71f550d922d2860ff4a303232fa9e31150ee2881",
+      "date": "2026-08-04T17:43:55+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: render rich chat responses"
+    },
+    {
+      "hash": "4f9f3b4354d2b26a91aa8a407735a669d3e5da2f",
+      "date": "2026-08-11T18:31:59+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: send chat attribution metadata"
+    },
+    {
+      "hash": "f98faa35f7033b3ebc278c55c6ec32dcd2c84ecf",
+      "date": "2026-08-11T18:35:31+03:00",
+      "author": "YlanDecode",
+      "subject": "Merge pull request #2 from LANTORIAN/feat/chat-saas-attribution"
+    },
+    {
+      "hash": "3e2c0e9daf060450ddc94dc5bee9d8f00682d45e",
+      "date": "2026-08-19T17:12:38+03:00",
+      "author": "YlanDecode",
+      "subject": "fix: persist saved database connection tests"
+    },
+    {
+      "hash": "64ad1118a0cb99c30d963c0ebfe6f5ebe9b5b02a",
+      "date": "2026-08-19T17:14:36+03:00",
+      "author": "YlanDecode",
+      "subject": "Merge pull request #3 from LANTORIAN/feat/chat-saas-attribution"
+    },
+    {
+      "hash": "c5c7e2af1065f144599fa8af742bb1b46ee7a609",
+      "date": "2026-08-19T23:03:43+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: show catalog cards and provider waits"
+    },
+    {
+      "hash": "34a0873b1d195a893dedda7c8ab7471eee4853d4",
+      "date": "2026-09-01T13:18:18+03:00",
+      "author": "YlanDecode",
+      "subject": "fix: show marketplace recommendation images"
+    },
+    {
+      "hash": "4d56feb5aed5ebc8f9874966cb6ba1c4da6fb80a",
+      "date": "2026-09-04T18:55:16+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: refresh agentic workspace design"
+    },
+    {
+      "hash": "d0918cd52db66fb6c671a8ec09cd957315176f1f",
+      "date": "2026-09-04T20:42:04+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: simplify analytics and project configuration"
+    },
+    {
+      "hash": "c4d8ddd7bf80f6a0c4c5ee32a7b073458665791a",
+      "date": "2026-09-10T11:31:22+03:00",
+      "author": "YlanDecode",
+      "subject": "feat: preserve catalog slugs from chat payloads"
+    }
+  ]
+}
